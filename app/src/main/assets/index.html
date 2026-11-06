@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<title>트렌드 레이더</title>
+<style>
+:root{--bg:#F6F3EE;--ink:#1E2A3A;--sub:#6B7280;--line:#E7E1D8;--card:#fff;--acc:#E2574C;--gold:#F2B36B;--ok:#2E9E6B;--mid:#D9902B;}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,"Noto Sans KR","Apple SD Gothic Neo",Roboto,sans-serif;font-size:15px}
+button{font:inherit;border:0;cursor:pointer}
+input{font:inherit}
+.wrap{max-width:640px;margin:0 auto;padding:16px 16px 90px}
+h1{font-size:26px;margin:6px 0 2px;letter-spacing:-.5px}
+h2{font-size:18px;margin:22px 0 10px}
+.muted{color:var(--sub);font-size:13px}
+.hero{background:var(--ink);color:#fff;border-radius:22px;padding:20px 18px;margin:8px 0 14px;position:relative;overflow:hidden}
+.hero:after{content:"";position:absolute;right:-40px;top:-40px;width:170px;height:170px;border-radius:50%;border:2px solid rgba(255,255,255,.12);box-shadow:0 0 0 26px rgba(255,255,255,.05)}
+.hero b{color:var(--gold)}
+.row{display:flex;gap:8px;align-items:center}
+.inp{flex:1;padding:13px 14px;border-radius:14px;border:1.5px solid var(--line);background:#fff;outline:none}
+.inp:focus{border-color:var(--ink)}
+.btn{padding:13px 16px;border-radius:14px;background:var(--ink);color:#fff;font-weight:700}
+.btn.acc{background:var(--acc)}
+.btn.ghost{background:#fff;color:var(--ink);border:1.5px solid var(--line)}
+.btn.big{width:100%;padding:16px;font-size:17px;margin-top:14px}
+.btn:disabled{opacity:.45}
+.chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}
+.chip{padding:8px 12px;border-radius:999px;background:#fff;border:1.5px solid var(--line);font-size:14px}
+.chip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.chip.sel{background:var(--acc);color:#fff;border-color:var(--acc)}
+.chip .x{margin-left:6px;opacity:.8}
+.card{background:var(--card);border-radius:18px;padding:14px;margin:10px 0;border:1px solid var(--line)}
+.list .card{display:flex;align-items:center;gap:12px}
+.list .card .t{flex:1;min-width:0}
+.list .card .t b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.thumb{width:54px;height:54px;border-radius:12px;background:#EEE8DF center/cover no-repeat;flex:none}
+.top{position:sticky;top:0;z-index:5;background:var(--bg);padding:10px 0 8px;display:flex;align-items:center;gap:10px}
+.back{width:40px;height:40px;border-radius:12px;background:#fff;border:1px solid var(--line);font-size:20px}
+.top .ttl{flex:1;min-width:0}
+.top .ttl b{font-size:19px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tabs{display:flex;gap:6px;overflow-x:auto;padding:4px 0 10px;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{flex:none;padding:9px 13px;border-radius:12px;background:#fff;border:1px solid var(--line);font-weight:600;font-size:14px}
+.tab.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.item{background:#fff;border-radius:16px;overflow:hidden;border:1px solid var(--line);position:relative;text-align:left;padding:0;color:inherit}
+.item .ph{aspect-ratio:3/4;background:#EEE8DF center/cover no-repeat;display:flex;align-items:center;justify-content:center;color:#B5AB9C;font-size:28px}
+.item .ph.load{animation:pulse 1.3s infinite}
+@keyframes pulse{50%{opacity:.55}}
+.item .info{padding:9px 10px 11px}
+.item .nm{font-weight:700;font-size:14px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.item .ty{font-size:12px;color:var(--sub);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.badges{position:absolute;left:7px;top:7px;display:flex;gap:4px;flex-wrap:wrap}
+.bd{font-size:11px;font-weight:800;padding:3px 7px;border-radius:8px;background:rgba(30,42,58,.86);color:#fff}
+.bd.g{background:var(--ok)}.bd.m{background:var(--mid)}.bd.r{background:#9CA3AF}
+.num:empty{display:none}
+.num{position:absolute;right:7px;top:7px;font-size:11px;font-weight:800;background:#fff;border-radius:8px;padding:3px 7px}
+.sum{background:#fff;border-radius:16px;padding:13px 14px;border:1px solid var(--line);line-height:1.55;font-size:14px;margin-bottom:10px}
+.note{background:#FFF4E5;border:1px solid #F5D8A8;border-radius:14px;padding:10px 12px;font-size:13px;margin-bottom:10px}
+.err{background:#FDECEA;border:1px solid #F5C2BC;border-radius:14px;padding:12px;font-size:14px;margin:10px 0}
+.spin{display:inline-block;width:16px;height:16px;border:2.5px solid #ccc;border-top-color:var(--acc);border-radius:50%;animation:sp 1s linear infinite;vertical-align:-3px;margin-right:6px}
+@keyframes sp{to{transform:rotate(360deg)}}
+.sheet{position:fixed;inset:0;background:var(--bg);z-index:20;overflow-y:auto}
+.gal{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;gap:6px;background:#EEE8DF;scrollbar-width:none}
+.gal::-webkit-scrollbar{display:none}
+.gal img{flex:none;width:100%;aspect-ratio:3/4;object-fit:cover;scroll-snap-align:center;background:#EEE8DF}
+.galbox{position:relative;border-radius:18px;overflow:hidden}
+.galcnt{position:absolute;right:10px;bottom:10px;background:rgba(0,0,0,.6);color:#fff;font-size:12px;padding:4px 9px;border-radius:10px}
+.noimg{aspect-ratio:3/4;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--sub);text-align:center;padding:20px}
+.kv{display:grid;grid-template-columns:88px 1fr;gap:8px 10px;font-size:14px;line-height:1.45}
+.kv .k{color:var(--sub)}
+.score{display:flex;align-items:center;gap:12px}
+.score .c{width:58px;height:58px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:19px;color:#fff;flex:none}
+.acts{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+.acts .btn{padding:12px 8px;font-size:14px}
+.sel{padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:#fff;font:inherit;font-size:13px}
+.vid{display:flex;gap:10px;align-items:center;background:#fff;border:1px solid var(--line);border-radius:14px;padding:8px;margin:8px 0;text-align:left;width:100%;color:inherit}
+.vid .vt{width:120px;aspect-ratio:16/9;border-radius:10px;background:#222 center/cover;flex:none;display:flex;align-items:center;justify-content:center;color:#fff;font-size:22px}
+.pick{display:block;width:100%;text-align:left;background:#fff;border:1.5px solid var(--line);border-radius:14px;padding:12px;margin:8px 0;color:inherit}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:40;display:flex;align-items:flex-end}
+.modal .box{background:var(--bg);width:100%;max-height:85vh;overflow-y:auto;border-radius:22px 22px 0 0;padding:18px 16px 26px}
+.toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:11px 16px;border-radius:12px;z-index:60;font-size:14px;max-width:88%;text-align:center}
+.sw{display:flex;align-items:center;justify-content:space-between;gap:10px}
+a{color:var(--acc)}
+.src{font-size:12px;color:var(--sub);word-break:break-all;margin:4px 0}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+'use strict';
+const AB=window.AndroidBridge||null;
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const LS={get(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v);}catch(e){return d;}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){toast('저장 공간이 꽉 찼어요. 오래된 리포트를 지워 주세요');}}};
+function toast(t,ms=2600){const d=document.createElement('div');d.className='toast';d.textContent=t;document.body.appendChild(d);setTimeout(()=>d.remove(),ms);}
+
+/* ---------- 설정 ---------- */
+let cfg={};try{cfg=AB?JSON.parse(AB.aiConfig()):{};}catch(e){cfg={};}
+function apiKey(){return cfg.gemini||LS.get('key','');}
+
+const BRANDS=['Zara','Forever 21','Mango','H&M','Bershka','Stradivarius','Pull&Bear','Massimo Dutti','Shein','Chanel','Gucci','Prada','Miu Miu','Dior','Farm Rio','Animale','Renner','C&A','Riachuelo','Zinzane'];
+const COUNTRIES=[['es','🇪🇸 스페인'],['pt','🇵🇹 포르투갈'],['fr','🇫🇷 프랑스'],['it','🇮🇹 이탈리아'],['uk','🇬🇧 영국'],['de','🇩🇪 독일'],['us','🇺🇸 미국'],['kr','🇰🇷 한국'],['jp','🇯🇵 일본'],['cn','🇨🇳 중국'],['mx','🇲🇽 멕시코'],['ar','🇦🇷 아르헨티나'],['cl','🇨🇱 칠레'],['co','🇨🇴 콜롬비아'],['br','🇧🇷 브라질']];
+const cName=c=>(COUNTRIES.find(x=>x[0]===c)||[c,c])[1].replace(/^\S+\s/,'');
+const SECTIONS=[
+  {id:'steady',icon:'🔁',title:'스테디 모델',long:'몇 년째 계속 다시 만드는 모델'},
+  {id:'push',icon:'🔥',title:'2026 주력',long:'2026년에 가장 크게 민 모델'},
+  {id:'newin',icon:'🆕',title:'지금 신상',long:'고른 나라 매장에 막 나온 신상'},
+];
+
+const S={
+  picked:LS.get('picked',['Zara']),
+  countries:LS.get('countries',['es','us','kr']),
+  index:LS.get('index',[]),   // [{key,name,at}]
+  view:'home',rep:null,sec:'steady',sort:'base',detail:null,
+};
+const saveIndex=()=>LS.set('index',S.index);
+const repKey=n=>n.toLowerCase().replace(/\s+/g,' ').trim();
+function loadRep(key){return LS.get('r:'+key,null);}
+function saveRep(rep){
+  LS.set('r:'+rep.key,rep);
+  const i=S.index.findIndex(x=>x.key===rep.key);const row={key:rep.key,name:rep.name,at:rep.at,thumb:firstImg(rep)};
+  if(i>=0)S.index[i]=row;else S.index.unshift(row);saveIndex();
+}
+function firstImg(rep){for(const s of SECTIONS){const it=((rep.sections||{})[s.id]||{}).items||[];for(const x of it)if(x.imgs&&x.imgs[0])return x.imgs[0];}return '';}
+const img=u=>!u?'':(AB&&/^https?:/.test(u)?'/img?u='+encodeURIComponent(u):u);
+
+/* ---------- 구글 AI (Gemini + 구글 검색) ---------- */
+const MODELS=['gemini-flash-latest','gemini-2.5-flash','gemini-2.5-flash-lite'];
+async function gemini(prompt,{search=true,signal}={}){
+  const key=apiKey();if(!key)throw new Error('NOKEY');
+  let last='';
+  for(const m of MODELS){
+    let r;
+    try{
+      r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`,{method:'POST',signal,
+        headers:{'content-type':'application/json','x-goog-api-key':key},
+        body:JSON.stringify({contents:[{role:'user',parts:[{text:prompt}]}],...(search?{tools:[{google_search:{}}]}:{}),generationConfig:{temperature:0.35}})});
+    }catch(e){if(signal&&signal.aborted)throw e;last='인터넷 연결을 확인해 주세요';continue;}
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok){const msg=(d.error&&d.error.message)||('http '+r.status);
+      if(r.status===400&&/API key/i.test(msg))throw new Error('BADKEY');
+      if(/billing|FAILED_PRECONDITION/i.test(msg))last='구글 AI 결제(카드) 연결이 필요해요';else last=msg;continue;}
+    const c=(d.candidates||[])[0]||{};
+    const text=((c.content&&c.content.parts)||[]).map(p=>p.text||'').join('');
+    const sources=(((c.groundingMetadata||{}).groundingChunks)||[]).map(x=>x.web).filter(Boolean);
+    if(text)return {text,sources};
+    last='AI가 빈 답을 줬어요';
+  }
+  throw new Error(last||'AI 오류');
+}
+function parseJSON(t){
+  t=String(t).replace(/```json|```/g,'');
+  const a=Math.min(...['{','['].map(ch=>{const i=t.indexOf(ch);return i<0?1e9:i;}));
+  if(a===1e9)throw new Error('JSON');
+  const close=t[a]==='{'?'}':']';const b=t.lastIndexOf(close);
+  let s=t.slice(a,b+1);
+  try{return JSON.parse(s);}catch(e){}
+  s=s.replace(/,\s*([}\]])/g,'$1').replace(/[“”]/g,'"');
+  return JSON.parse(s);
+}
+const today=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
+
+function who(rep){
+  const i=rep.info||{};
+  return `조사 대상: "${rep.name}"`+(i.name&&i.name!==rep.name?` (정식 이름: ${i.name})`:'')+(i.where?` / 위치·종류: ${i.where}`:'')+
+    (i.instagram?` / 인스타그램: ${i.instagram}`:'')+(i.site?` / 사이트: ${i.site}`:'')+(i.desc?` / 설명: ${i.desc}`:'');
+}
+const ITEM_SPEC=`각 모델(items)마다 아래 칸을 채워:
+{"name":"상품/모델 이름(원래 언어 그대로)","type":"종류(한국어: 바지, 블라우스, 까자코(재킷), 원피스, 니트, 셔츠, 스커트, 세트 등)",
+ "desc":"어떤 옷인지 한국어 한 줄 (디자인 특징: 넥라인, 소매, 기장, 디테일)",
+ "colors":["나온 색 (한국어)"],
+ "fabric":"원단 성분. 공식 상품 페이지에 있으면 그대로 (예: 리넨 55%, 비스코스 45%)",
+ "fabricGuess":false,  (성분 표시가 없어 사진·설명으로 추측했으면 true)
+ "fabricPt":"봉헤치로 원단 가게에서 찾을 때 부르는 포르투갈어 원단 이름 (예: viscolinho, alfaiataria, crepe, malha canelada)",
+ "fit":"핏·실루엣 (예: 오버핏, 크롭, 와이드, 슬림)",
+ "price":"현지 판매가 (통화 표시, 모르면 빈칸)",
+ "countries":["이 모델이 나온 나라 (한국어 나라 이름)"],
+ "brazil":{"score":0~100,"why":"브라질에서 팔릴 가능성 이유 한두 줄"},
+ "url":"이 상품의 공식 상품 페이지나 인스타 게시물 주소 — 검색에서 실제로 확인한 주소만, 모르면 빈칸",
+ "img":"상품 사진 파일 주소를 확실히 알면 (모르면 빈칸)",
+ "video":"이 모델이 나오는 유튜브 영상 주소가 있으면 (없으면 빈칸)"}
+브라질 점수 기준: 상파울루 날씨(곧 여름, 12~3월 덥고 습함), 브라질 여성 체형·취향(몸매를 살리는 핏, 밝은 색, 시원한 원단), 봉헤치로 도매가(약 R$30~180)로 만들 수 있는지, 브라질에서 이미 비슷한 게 많이 팔리는지.`;
+const OUT_RULE=`답은 설명 없이 JSON 하나만:
+{"summary":"이 항목 전체 흐름 요약 (한국어 2~3문장)","note":"10개를 못 채웠거나 자료가 적으면 '자료 부족: 이유', 아니면 빈칸",
+ "items":[...최대 10개...],"videos":[{"title":"영상 제목","url":"유튜브 주소"}]}
+중요: 반드시 구글 검색으로 확인한 사실만 써. 주소(url, img, video)는 절대 지어내지 마 — 모르면 빈칸. 서로 다른 종류(바지·상의·아우터·원피스 등)가 골고루 섞이게, 한두 모델에 몰리지 않게.`;
+
+function sectionPrompt(rep,sec){
+  const base=`너는 브라질 상파울루 봉헤치로에서 14년째 여성복을 생산·도매하는 한국인 사장님을 돕는 패션 트렌드 리서처야. 오늘 날짜: ${today()}.
+${who(rep)}
+큰 브랜드면 공식 온라인몰·룩북·뉴스 기사·인스타그램을, 작은 가게면 인스타그램·웹사이트·왓츠앱 카탈로그·페이스북·틱톡·구글 지도 사진까지 찾을 수 있는 걸 다 찾아봐. 여성복 위주로.`;
+  let task='';
+  if(sec==='steady')task=`[할 일] 이 브랜드(가게)가 여러 해 동안(시즌마다) 계속 다시 만들어 파는 "스테디 모델" 10개를 찾아. 바지·블라우스·까자코(재킷)·원피스·니트 등 종류별로 골고루. 해마다 색이나 원단만 바뀌어 다시 나오는 기본 모델, 베스트셀러가 다시 나오는 모델 위주. 지금 판매 중인 버전의 주소가 있으면 그걸로.`;
+  if(sec==='push')task=`[할 일] 이 브랜드(가게)가 2026년에 가장 크게 밀었던(광고·캠페인·메인 화면·인스타 노출·완판·재입고가 많았던) 모델 10개를 찾아. 봄여름(SS26)과 가을겨울(FW26)을 섞어서.`;
+  if(sec==='newin'){const cs=(rep.countries||[]).map(cName).join(', ')||'스페인, 미국, 한국';
+    task=`[할 일] 지금(최근 2~3주) 이 나라들의 매장·온라인몰에 막 나온 신상 10개를 찾아: ${cs}. 지금 겨울로 들어가는 나라는 겨울 신상이 나올 거야. 각 모델의 countries에는 위 나라 중 실제로 그 모델이 나와 있는 나라를 모두 적어 (여러 나라에 동시에 나온 모델이 진짜 대세라서 중요해). 여러 나라에 동시에 나온 모델을 우선으로.`;}
+  return base+'\n\n'+task+'\n\n'+ITEM_SPEC+'\n\n'+OUT_RULE;
+}
+
+/* ---------- 상호 확인 (같은 이름 가게가 여러 개면 고르기) ---------- */
+async function identify(name){
+  const p=`구글 검색으로 "${name}" 라는 이름의 패션(옷) 브랜드나 옷가게를 찾아줘. 오늘 날짜: ${today()}.
+유명 브랜드면 그 브랜드 하나만. 작은 가게면 브라질 상파울루 봉헤치로(Bom Retiro, Rua dos Aimorés, Rua José Paulino 등) 가게를 먼저 찾고, 같은 이름이 여러 곳이면 최대 4개 후보.
+답은 JSON 배열만: [{"name":"정식 이름","where":"나라·도시·거리, 브랜드 종류(예: 스페인 SPA 브랜드 / 봉헤치로 도매 가게)","instagram":"@계정 또는 주소(확인된 것만)","site":"웹사이트(확인된 것만)","desc":"한 줄 설명(한국어)"}]
+찾지 못하면 [] 로.`;
+  const r=await gemini(p);
+  let arr=[];try{arr=parseJSON(r.text);}catch(e){arr=[];}
+  if(!Array.isArray(arr))arr=arr&&arr.name?[arr]:[];
+  return arr.filter(x=>x&&x.name).slice(0,4);
+}
+function askPick(name,cands){
+  return new Promise(res=>{
+    const m=document.createElement('div');m.className='modal';
+    m.innerHTML=`<div class="box"><h2 style="margin-top:0">"${esc(name)}" 이 가게 맞아요?</h2><div class="muted">같은 이름이 여러 곳이에요. 조사할 곳을 골라 주세요</div>
+      ${cands.map((c,i)=>`<button class="pick" data-i="${i}"><b>${esc(c.name)}</b><div class="muted">${esc(c.where||'')}</div><div style="font-size:13px;margin-top:4px">${esc(c.desc||'')}</div><div class="src">${esc([c.instagram,c.site].filter(Boolean).join(' · '))}</div></button>`).join('')}
+      <button class="pick" data-i="-1"><b>여기 없어요 — 이름 그대로 조사하기</b></button></div>`;
+    m.onclick=e=>{const b=e.target.closest('.pick');if(!b)return;const i=+b.dataset.i;m.remove();res(i<0?null:cands[i]);};
+    document.body.appendChild(m);
+  });
+}
+
+/* ---------- 조사 실행 ---------- */
+const running={};   // key -> true
+async function research(name,{reuseInfo}={}){
+  const key=repKey(name);
+  if(running[key])return;
+  running[key]=true;
+  let rep=loadRep(key)||{key,name,sections:{}};
+  rep.name=name;rep.at=Date.now();rep.countries=S.countries.slice();rep.sections={};
+  rep.status='identify';
+  saveRep(rep);render();
+  try{
+    if(!(reuseInfo&&rep.info)){
+      let info=null;
+      try{
+        const c=await identify(name);
+        if(c.length===1)info=c[0];
+        else if(c.length>1)info=await askPick(name,c);
+      }catch(e){if(/NOKEY|BADKEY/.test(e.message))throw e;}
+      rep.info=info||{name};
+    }
+    rep.status='run';
+    for(const s of SECTIONS)rep.sections[s.id]={status:'run',items:[]};
+    saveRep(rep);render();
+    await Promise.all(SECTIONS.map(async s=>{
+      try{
+        const r=await gemini(sectionPrompt(rep,s.id));
+        let d;try{d=parseJSON(r.text);}catch(e){d={summary:'',note:'',items:[]};}
+        if(Array.isArray(d))d={items:d};
+        const items=(d.items||[]).filter(x=>x&&x.name).slice(0,10).map(x=>({...x,imgs:[],imgState:0}));
+        rep.sections[s.id]={status:'done',summary:d.summary||'',note:d.note||(items.length<10?`자료 부족: ${items.length}개만 찾았어요`:''),items,
+          videos:(d.videos||[]).filter(v=>v&&/youtu/.test(v.url||'')).slice(0,6),sources:(r.sources||[]).slice(0,15)};
+      }catch(e){
+        rep.sections[s.id]={status:'error',error:errMsg(e),items:[]};
+      }
+      saveRep(rep);if(S.rep===key)render();
+      fillImages(rep,s.id);
+    }));
+    rep.status='done';saveRep(rep);render();
+    toast(`✅ ${name} 조사 끝!`);
+  }catch(e){
+    rep.status='error';rep.error=errMsg(e);saveRep(rep);render();
+  }finally{delete running[key];}
+}
+function errMsg(e){const m=(e&&e.message)||String(e);
+  if(m==='NOKEY')return '구글 AI 키가 없어요. ⚙️ 설정에서 키를 넣어 주세요';
+  if(m==='BADKEY')return '구글 AI 키가 맞지 않아요. ⚙️ 설정에서 확인해 주세요';
+  return m;}
+
+/* ---------- 사진 찾기 (상품 페이지에서 앞·뒤·디테일 사진 모으기) ---------- */
+const renderWait={};
+window.__rendered=(id,json)=>{const f=renderWait[id];if(!f)return;delete renderWait[id];let a=[];try{a=JSON.parse(json);}catch(e){}f(Array.isArray(a)?a:[]);};
+function renderPage(url){
+  if(!AB||!AB.render)return Promise.resolve([]);
+  return new Promise(res=>{const id='r'+Math.random().toString(36).slice(2);renderWait[id]=res;AB.render(id,url);setTimeout(()=>{if(renderWait[id]){delete renderWait[id];res([]);}},26000);});
+}
+const BAD_IMG=/\.svg(\?|$)|logo|icon|sprite|pixel|blank|transparent|placeholder|favicon|avatar|badge|flag/i;
+function imgsFromHtml(html,base){
+  const out=[],seen=new Set();
+  const add=u=>{if(!u||typeof u!=='string')return;u=u.replace(/&amp;/g,'&').trim();try{u=new URL(u,base).href;}catch(e){return;}
+    if(!/^https?:/.test(u)||BAD_IMG.test(u)||seen.has(u))return;seen.add(u);out.push(u);};
+  let doc;try{doc=new DOMParser().parseFromString(html,'text/html');}catch(e){return out;}
+  doc.querySelectorAll('meta[property="og:image"],meta[name="og:image"],meta[property="og:image:secure_url"],meta[name="twitter:image"],link[rel="image_src"]').forEach(m=>add(m.getAttribute('content')||m.getAttribute('href')));
+  const walk=o=>{if(!o)return;if(Array.isArray(o)){o.forEach(walk);return;}if(typeof o==='object'){for(const k in o){const v=o[k];
+    if(k==='image'||k==='images'||k==='contentUrl'||k==='thumbnailUrl'){if(typeof v==='string')add(v);else if(Array.isArray(v))v.forEach(x=>typeof x==='string'?add(x):x&&add(x.url||x.contentUrl));else if(v&&typeof v==='object')add(v.url||v.contentUrl);}
+    else if(typeof v==='object')walk(v);}}};
+  doc.querySelectorAll('script[type="application/ld+json"]').forEach(s=>{try{walk(JSON.parse(s.textContent));}catch(e){}});
+  doc.querySelectorAll('img').forEach(im=>{
+    const ss=im.getAttribute('srcset')||im.getAttribute('data-srcset');
+    if(ss){const best=ss.split(',').map(x=>{x=x.trim().split(/\s+/);return{u:x[0],w:parseInt(x[1]||'0',10)};}).sort((a,b)=>b.w-a.w)[0];if(best&&best.w>=400){add(best.u);return;}}
+    const w=parseInt(im.getAttribute('width')||'0',10);const src=im.getAttribute('data-src')||im.getAttribute('src');
+    if(src&&(w>=350||/product|photos|media|cdn|images/i.test(src))&&!/^data:/.test(src))add(src);
+  });
+  return out.slice(0,14);
+}
+async function pageImages(url){
+  if(!AB||!/^https?:/.test(url||''))return [];
+  let list=[];
+  try{const r=await fetch('/fetch?u='+encodeURIComponent(url));const d=await r.json();
+    if(d.html&&d.status<400)list=imgsFromHtml(d.html,d.url||url);
+    if(list.length<2){const more=await renderPage(d.url||url);for(const u of more)if(!list.includes(u)&&!BAD_IMG.test(u))list.push(u);}
+  }catch(e){}
+  return list.slice(0,12);
+}
+function ytId(u){const m=String(u||'').match(/(?:v=|youtu\.be\/|shorts\/|embed\/)([\w-]{11})/);return m?m[1]:'';}
+let imgPool=0;const imgQueue=[];
+function queueImg(job){imgQueue.push(job);pump();}
+function pump(){while(imgPool<3&&imgQueue.length){const j=imgQueue.shift();imgPool++;j().finally(()=>{imgPool--;pump();});}}
+function fillImages(rep,secId){
+  const sec=rep.sections[secId];if(!sec||!sec.items)return;
+  sec.items.forEach((it,i)=>{
+    if(it.imgState===2)return;
+    it.imgState=1;
+    queueImg(async()=>{
+      let list=[];
+      if(it.img&&/^https?:/.test(it.img))list.push(it.img);
+      if(it.url){for(const u of await pageImages(it.url))if(!list.includes(u))list.push(u);}
+      if(!list.length&&ytId(it.video))list.push(`https://i.ytimg.com/vi/${ytId(it.video)}/hqdefault.jpg`);
+      it.imgs=list;it.imgState=2;
+      saveRep(rep);
+      if(S.rep===rep.key)updateCard(secId,i,list);
+      if(S.detail&&S.detail.sec===secId&&S.detail.i===i&&S.rep===rep.key)render();
+    });
+  });
+}
+function updateCard(secId,i,list){
+  if(S.sec!==secId||S.view!=='report')return;
+  const el=document.querySelector(`.item[data-i="${i}"] .ph`);if(!el)return;
+  el.classList.remove('load');
+  if(list[0]){el.style.backgroundImage=`url("${img(list[0])}")`;el.textContent='';
+    const n=el.parentElement.querySelector('.num');if(n)n.textContent=list.length>1?`📷${list.length}`:'';}
+  else el.textContent='👗';
+}
+
+/* ---------- 알림 (새 상품) ---------- */
+function getWatch(){try{return AB?JSON.parse(AB.getWatch()):LS.get('watch',[]);}catch(e){return [];}}
+function setWatch(list){if(AB)AB.setWatch(JSON.stringify(list));else LS.set('watch',list);}
+function isWatched(key){return getWatch().some(w=>repKey(w.name)===key);}
+function toggleWatch(rep){
+  let w=getWatch();
+  if(w.some(x=>repKey(x.name)===rep.key)){w=w.filter(x=>repKey(x.name)!==rep.key);toast('🔕 알림을 껐어요');}
+  else{const i=rep.info||{};w.push({name:rep.name,info:[i.where,i.instagram,i.site].filter(Boolean).join(', '),countries:(rep.countries||S.countries).map(cName).join(', ')});
+    toast('🔔 하루 한 번 새 상품을 확인해서 알려 드릴게요');}
+  setWatch(w);render();
+}
+function getNews(){try{return AB?JSON.parse(AB.getNews()):[];}catch(e){return [];}}
+window.__openNews=()=>{S.view='news';render();};
+
+/* ---------- 화면 ---------- */
+function render(){
+  const app=$('#app');
+  if(S.view==='home')app.innerHTML=homeHTML();
+  else if(S.view==='report')app.innerHTML=reportHTML();
+  else if(S.view==='settings')app.innerHTML=settingsHTML();
+  else if(S.view==='news')app.innerHTML=newsHTML();
+  if(S.detail)app.insertAdjacentHTML('beforeend',detailHTML());
+  bind();
+}
+function homeHTML(){
+  const news=getNews();
+  return `<div class="wrap">
+  <div class="row" style="justify-content:space-between"><div><h1>트렌드 레이더</h1><div class="muted">브랜드·가게 이름만 넣으면 AI가 조사해요</div></div>
+    <button class="back" data-act="settings" title="설정">⚙️</button></div>
+  <div class="hero"><div style="font-size:13px;opacity:.75">한 번 조사하면</div>
+    <div style="font-size:17px;line-height:1.55;margin-top:4px">🔁 <b>스테디 모델</b> 10 · 🔥 <b>2026 주력</b> 10<br>🆕 <b>지금 해외 신상</b> 10 · 🎬 영상까지</div>
+    <div style="font-size:12.5px;opacity:.75;margin-top:8px">원단 성분 · 브라질 판매 점수 · 여러 나라 동시 출시 표시</div></div>
+  ${news.length?`<button class="card" data-act="news" style="width:100%;text-align:left;border-color:var(--acc)"><b>🆕 새 상품 소식 ${news.length}개</b><div class="muted">알림 켠 브랜드에 새로 올라온 상품</div></button>`:''}
+  <h2>① 조사할 브랜드·가게</h2>
+  <div class="row"><input class="inp" id="brandIn" placeholder="예: Zara, 봉헤치로 가게 이름" enterkeyhint="done"><button class="btn" data-act="add">추가</button></div>
+  <div class="chips">${S.picked.map(b=>`<button class="chip sel" data-act="unpick" data-v="${esc(b)}">${esc(b)}<span class="x">✕</span></button>`).join('')||'<span class="muted">아래에서 고르거나 이름을 써서 추가하세요</span>'}</div>
+  <div class="chips">${BRANDS.filter(b=>!S.picked.includes(b)).map(b=>`<button class="chip" data-act="pick" data-v="${esc(b)}">+ ${esc(b)}</button>`).join('')}</div>
+  <h2>② 신상 볼 나라 <span class="muted">(여러 개 고르기)</span></h2>
+  <div class="chips">${COUNTRIES.map(([c,n])=>`<button class="chip ${S.countries.includes(c)?'on':''}" data-act="country" data-v="${c}">${n}</button>`).join('')}</div>
+  <button class="btn acc big" data-act="go" ${S.picked.length&&S.countries.length?'':'disabled'}>🔍 ${S.picked.length}곳 조사 시작</button>
+  <div class="muted" style="text-align:center;margin-top:8px">한 곳에 1~2분 걸려요. 조사하는 동안 다른 화면을 봐도 돼요</div>
+  <h2>저장한 리포트</h2>
+  <div class="list">${S.index.length?S.index.map(r=>{const rp=loadRep(r.key)||{};const st=running[r.key]?'<span class="spin"></span>조사 중…':rp.status==='error'?'⚠️ 오류':new Date(r.at).toLocaleDateString('ko-KR');
+    return `<div class="card" data-act="open" data-v="${esc(r.key)}"><div class="thumb" style="${r.thumb||firstImg(rp)?`background-image:url('${img(r.thumb||firstImg(rp))}')`:''}"></div>
+    <div class="t"><b>${esc(r.name)}${isWatched(r.key)?' 🔔':''}</b><span class="muted">${st}</span></div><span style="font-size:20px;color:#bbb">›</span></div>`;}).join(''):'<div class="muted">아직 없어요</div>'}</div>
+  </div>`;
+}
+function scoreCls(s){s=+s||0;return s>=75?'g':s>=50?'m':'r';}
+function sortedItems(sec){
+  const it=(sec.items||[]).map((x,i)=>({x,i}));
+  if(S.sort==='score')it.sort((a,b)=>((b.x.brazil||{}).score||0)-((a.x.brazil||{}).score||0));
+  if(S.sort==='countries')it.sort((a,b)=>(b.x.countries||[]).length-(a.x.countries||[]).length);
+  if(S.sort==='type')it.sort((a,b)=>String(a.x.type).localeCompare(String(b.x.type),'ko'));
+  return it;
+}
+function reportHTML(){
+  const rep=loadRep(S.rep);if(!rep){S.view='home';return homeHTML();}
+  const info=rep.info||{};
+  const head=`<div class="top"><button class="back" data-act="home">‹</button><div class="ttl"><b>${esc(rep.name)}</b><span class="muted">${esc(info.where||'')}${rep.at?' · '+new Date(rep.at).toLocaleDateString('ko-KR'):''}</span></div>
+    <button class="back" data-act="watch" title="새 상품 알림">${isWatched(rep.key)?'🔔':'🔕'}</button><button class="back" data-act="redo" title="다시 조사">↻</button></div>`;
+  if(rep.status==='identify')return `<div class="wrap">${head}<div class="card"><span class="spin"></span>어떤 브랜드(가게)인지 찾는 중…</div></div>`;
+  if(rep.status==='error'&&!Object.keys(rep.sections||{}).length)return `<div class="wrap">${head}<div class="err">⚠️ ${esc(rep.error)}</div><button class="btn big" data-act="redo">다시 해 보기</button></div>`;
+  const tabs=`<div class="tabs">${SECTIONS.map(s=>{const sec=(rep.sections||{})[s.id]||{};const n=(sec.items||[]).length;
+    return `<button class="tab ${S.sec===s.id?'on':''}" data-act="tab" data-v="${s.id}">${s.icon} ${s.title}${sec.status==='run'?' …':n?` ${n}`:''}</button>`;}).join('')}
+    <button class="tab ${S.sec==='video'?'on':''}" data-act="tab" data-v="video">🎬 영상</button>
+    <button class="tab ${S.sec==='src'?'on':''}" data-act="tab" data-v="src">📎 출처</button></div>`;
+  let body='';
+  if(S.sec==='video')body=videoHTML(rep);
+  else if(S.sec==='src')body=srcHTML(rep);
+  else{
+    const meta=SECTIONS.find(s=>s.id===S.sec);const sec=(rep.sections||{})[S.sec]||{};
+    if(sec.status==='run')body=`<div class="card"><span class="spin"></span><b>${meta.long}</b> 조사 중… (1~2분)</div><div class="grid">${Array.from({length:4}).map(()=>`<div class="item"><div class="ph load"></div><div class="info"><div class="nm">&nbsp;</div></div></div>`).join('')}</div>`;
+    else if(sec.status==='error')body=`<div class="err">⚠️ ${esc(sec.error)}</div><button class="btn big" data-act="redo">다시 조사</button>`;
+    else{
+      const items=sortedItems(sec);
+      body=`<div class="muted" style="margin-bottom:8px">${meta.long}${S.sec==='newin'?' · '+(rep.countries||[]).map(cName).join(', '):''}</div>
+      ${sec.summary?`<div class="sum">${esc(sec.summary)}</div>`:''}${sec.note?`<div class="note">📌 ${esc(sec.note)}</div>`:''}
+      <div class="row" style="justify-content:space-between;margin-bottom:10px"><span class="muted">${items.length}개 · 눌러서 자세히</span>
+      <select class="sel" id="sortSel"><option value="base">기본 순서</option><option value="score">🇧🇷 브라질 점수순</option><option value="countries">🌍 나라 많은 순</option><option value="type">종류별</option></select></div>
+      <div class="grid">${items.map(({x,i})=>cardHTML(x,i,S.sec)).join('')}</div>`;
+    }
+  }
+  return `<div class="wrap">${head}${tabs}${body}</div>`;
+}
+function cardHTML(x,i,secId){
+  const sc=(x.brazil||{}).score;const cn=(x.countries||[]).length;
+  const ph=x.imgs&&x.imgs[0]?`style="background-image:url('${img(x.imgs[0])}')"`:'';
+  return `<button class="item" data-act="detail" data-i="${i}">
+    <div class="ph ${x.imgState===2?'':'load'}" ${ph}>${x.imgs&&x.imgs[0]?'':(x.imgState===2?'👗':'')}</div>
+    <div class="badges">${sc!=null&&sc!==''?`<span class="bd ${scoreCls(sc)}">🇧🇷 ${esc(sc)}</span>`:''}${secId==='newin'&&cn>=2?`<span class="bd">🌍 ${cn}개국</span>`:''}</div>
+    <span class="num">${x.imgs&&x.imgs.length>1?'📷'+x.imgs.length:''}</span>
+    <div class="info"><div class="nm">${esc(x.name)}</div><div class="ty">${esc(x.type||'')}${x.fabric?' · '+esc(x.fabric):''}</div></div></button>`;
+}
+function allVideos(rep){
+  const seen=new Set(),out=[];
+  for(const s of SECTIONS){const sec=(rep.sections||{})[s.id]||{};
+    for(const v of sec.videos||[]){const id=ytId(v.url);if(id&&!seen.has(id)){seen.add(id);out.push({...v,id,from:s.title});}}
+    for(const x of sec.items||[]){const id=ytId(x.video);if(id&&!seen.has(id)){seen.add(id);out.push({title:x.name,url:x.video,id,from:s.title});}}}
+  return out;
+}
+function videoHTML(rep){
+  const v=allVideos(rep);const q=encodeURIComponent;const n=rep.name;const ig=((rep.info||{}).instagram||'').replace(/^@/,'');
+  const links=[
+    ['▶️ 유튜브: 새 컬렉션',`https://www.youtube.com/results?search_query=${q(n+' new collection '+new Date().getFullYear())}`],
+    ['▶️ 유튜브: 하울·입어보기',`https://www.youtube.com/results?search_query=${q(n+' haul try on')}`],
+    ['🎵 틱톡에서 보기',`https://www.tiktok.com/search?q=${q(n+' new in')}`],
+    ig?['📷 인스타그램 계정',/^https?:/.test(ig)?ig:`https://www.instagram.com/${ig}/`]:['📷 인스타그램 검색',`https://www.google.com/search?q=${q(n+' instagram')}`],
+    ['🖼️ 구글 이미지',`https://www.google.com/search?tbm=isch&q=${q(n+' new in '+new Date().getFullYear())}`],
+  ];
+  return `${v.length?v.map(x=>`<button class="vid" data-act="url" data-v="${esc(x.url)}"><div class="vt" style="background-image:url('${img('https://i.ytimg.com/vi/'+x.id+'/hqdefault.jpg')}')">▶</div><div><b style="font-size:14px">${esc(x.title||'영상')}</b><div class="muted">${esc(x.from)}</div></div></button>`).join(''):'<div class="note">AI가 찾은 영상이 없어요. 아래에서 바로 찾아보세요</div>'}
+  <h2>더 찾아보기</h2>${links.map(([t,u])=>`<button class="pick" data-act="url" data-v="${esc(u)}"><b>${t}</b></button>`).join('')}`;
+}
+function srcHTML(rep){
+  let h='<div class="muted" style="margin-bottom:8px">AI가 조사할 때 본 자료예요. 눌러서 원문을 볼 수 있어요</div>';
+  for(const s of SECTIONS){const src=((rep.sections||{})[s.id]||{}).sources||[];if(!src.length)continue;
+    h+=`<h2>${s.icon} ${s.title}</h2>`+src.map(x=>`<button class="pick" data-act="url" data-v="${esc(x.uri)}"><b style="font-size:14px">${esc(x.title||x.uri)}</b></button>`).join('');}
+  return h;
+}
+function detailHTML(){
+  const rep=loadRep(S.rep);if(!rep)return '';
+  const x=((rep.sections||{})[S.detail.sec]||{}).items?.[S.detail.i];if(!x)return '';
+  const b=x.brazil||{};const sc=b.score;const imgs=x.imgs||[];const q=encodeURIComponent(rep.name+' '+x.name);
+  const gal=imgs.length?`<div class="galbox"><div class="gal" id="gal">${imgs.map(u=>`<img src="${img(u)}" loading="lazy" onerror="this.remove()">`).join('')}</div><div class="galcnt" id="galcnt">1 / ${imgs.length}</div></div>
+    <div class="muted" style="text-align:center;margin-top:6px">옆으로 넘기면 앞·뒤·디테일 사진</div>`
+    :`<div class="galbox" style="background:#EEE8DF"><div class="noimg">${x.imgState===2?`<div style="font-size:34px">👗</div><div>사진을 찾지 못했어요</div><button class="btn ghost" data-act="url" data-v="https://www.google.com/search?tbm=isch&q=${q}">🖼️ 구글 이미지에서 보기</button>`:'<span class="spin"></span>사진 찾는 중…'}</div></div>`;
+  return `<div class="sheet" id="sheet"><div class="wrap">
+  <div class="top"><button class="back" data-act="close">‹</button><div class="ttl"><b>${esc(x.name)}</b><span class="muted">${esc(x.type||'')}</span></div></div>
+  ${gal}
+  <div class="card"><div style="line-height:1.5">${esc(x.desc||'')}</div></div>
+  <div class="card kv">
+    <div class="k">원단</div><div><b>${esc(x.fabric||'정보 없음')}</b>${x.fabricGuess?' <span class="muted">(사진 보고 추측)</span>':''}${x.fabricPt?`<div class="muted">봉헤치로에서: ${esc(x.fabricPt)}</div>`:''}</div>
+    ${x.colors&&x.colors.length?`<div class="k">색상</div><div>${esc(x.colors.join(', '))}</div>`:''}
+    ${x.fit?`<div class="k">핏</div><div>${esc(x.fit)}</div>`:''}
+    ${x.price?`<div class="k">가격</div><div>${esc(x.price)}</div>`:''}
+    ${x.countries&&x.countries.length?`<div class="k">나온 나라</div><div>${esc(x.countries.join(', '))}${x.countries.length>=2?' <b style="color:var(--acc)">· 여러 나라 동시</b>':''}</div>`:''}
+  </div>
+  ${sc!=null&&sc!==''?`<div class="card score"><div class="c" style="background:var(--${scoreCls(sc)==='g'?'ok':scoreCls(sc)==='m'?'mid':'sub'})">${esc(sc)}</div><div><b>🇧🇷 브라질 판매 점수</b><div style="font-size:14px;line-height:1.5;margin-top:3px">${esc(b.why||'')}</div></div></div>`:''}
+  <div class="acts">
+    ${imgs.length?`<button class="btn acc" data-act="vitrine">👗 Vitrine AI로 보내기</button><button class="btn ghost" data-act="save">💾 사진 저장</button>`:''}
+    ${x.url?`<button class="btn ghost" data-act="url" data-v="${esc(x.url)}">🔗 원래 페이지</button>`:''}
+    <button class="btn ghost" data-act="url" data-v="https://www.google.com/search?tbm=isch&q=${q}">🖼️ 사진 더 찾기</button>
+    <button class="btn ghost" data-act="url" data-v="${esc(ytId(x.video)?x.video:'https://www.youtube.com/results?search_query='+q)}">🎬 영상 보기</button>
+    <button class="btn ghost" data-act="sharetxt">📤 내용 공유</button>
+  </div>
+  ${x.url?`<div class="src" style="margin-top:12px">출처: ${esc(x.url)}</div>`:''}
+  </div></div>`;
+}
+function settingsHTML(){
+  const w=getWatch();
+  return `<div class="wrap"><div class="top"><button class="back" data-act="home">‹</button><div class="ttl"><b>설정</b></div></div>
+  <div class="card"><b>구글 AI 키</b><div class="muted" style="margin:4px 0 10px">${cfg.built?'✅ 앱에 키가 들어 있어요 (GitHub 비밀값)':'aistudio.google.com 에서 만든 키를 붙여 넣으세요'}</div>
+    ${cfg.built?'':`<div class="row"><input class="inp" id="keyIn" type="password" placeholder="AIza..." value="${esc(LS.get('key',''))}"><button class="btn" data-act="savekey">저장</button></div>`}
+    <button class="btn ghost big" data-act="testkey" style="margin-top:10px">🔌 연결 시험</button></div>
+  <div class="card"><b>🔔 새 상품 알림</b><div class="muted" style="margin:4px 0 8px">하루 한 번 확인해요. 리포트 화면 오른쪽 위 🔕를 누르면 추가돼요</div>
+    ${w.length?w.map(x=>`<div class="sw" style="padding:8px 0;border-top:1px solid var(--line)"><span>${esc(x.name)} <span class="muted">${esc(x.countries||'')}</span></span><button class="chip" data-act="unwatch" data-v="${esc(x.name)}">끄기</button></div>`).join(''):'<div class="muted">아직 없어요</div>'}
+    ${w.length&&AB?'<button class="btn ghost big" data-act="checknow">지금 바로 확인</button>':''}</div>
+  <div class="card"><b>저장 공간</b><div class="muted" style="margin:4px 0 8px">리포트 ${S.index.length}개</div><button class="btn ghost big" data-act="clearall">🗑 리포트 모두 지우기</button></div>
+  <div class="muted" style="text-align:center;margin-top:16px">트렌드 레이더 · 개인용 · v${esc(cfg.version||'web')}</div></div>`;
+}
+function newsHTML(){
+  const n=getNews().slice().reverse();
+  return `<div class="wrap"><div class="top"><button class="back" data-act="home">‹</button><div class="ttl"><b>🆕 새 상품 소식</b></div>${n.length?'<button class="chip" data-act="clearnews">모두 지우기</button>':''}</div>
+  ${n.length?n.map(x=>`<button class="pick" data-act="url" data-v="${esc(x.url||'https://www.google.com/search?tbm=isch&q='+encodeURIComponent(x.brand+' '+x.name))}"><b>${esc(x.name)}</b><div class="muted">${esc(x.brand)} · ${esc(x.type||'')} · ${esc(x.at||'')}</div></button>`).join(''):'<div class="muted">새 소식이 없어요</div>'}</div>`;
+}
+
+/* ---------- 버튼 ---------- */
+function bind(){
+  const inp=$('#brandIn');if(inp)inp.onkeydown=e=>{if(e.key==='Enter')act('add');};
+  const ss=$('#sortSel');if(ss){ss.value=S.sort;ss.onchange=()=>{S.sort=ss.value;render();};}
+  const g=$('#gal');if(g)g.onscroll=()=>{const c=$('#galcnt');if(c)c.textContent=`${Math.round(g.scrollLeft/g.clientWidth)+1} / ${g.children.length}`;};
+}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!b)return;act(b.dataset.act,b.dataset.v,b);});
+function curItem(){const rep=loadRep(S.rep);return rep&&S.detail?((rep.sections||{})[S.detail.sec]||{}).items?.[S.detail.i]:null;}
+function curImg(){const x=curItem();if(!x||!x.imgs||!x.imgs.length)return '';const g=$('#gal');const i=g?Math.round(g.scrollLeft/g.clientWidth):0;return x.imgs[Math.min(i,x.imgs.length-1)];}
+function openUrl(u){if(!u)return;if(AB)AB.open(u);else window.open(u,'_blank');}
+async function act(a,v,el){
+  if(a==='add'){const i=$('#brandIn');const t=(i.value||'').trim();if(!t)return;if(!S.picked.includes(t))S.picked.push(t);LS.set('picked',S.picked);render();}
+  else if(a==='pick'){S.picked.push(v);LS.set('picked',S.picked);render();}
+  else if(a==='unpick'){S.picked=S.picked.filter(x=>x!==v);LS.set('picked',S.picked);render();}
+  else if(a==='country'){S.countries=S.countries.includes(v)?S.countries.filter(x=>x!==v):[...S.countries,v];LS.set('countries',S.countries);render();}
+  else if(a==='go'){
+    if(!apiKey()){toast('먼저 ⚙️ 설정에서 구글 AI 키를 넣어 주세요');S.view='settings';render();return;}
+    const list=S.picked.slice();
+    S.rep=repKey(list[0]);S.view='report';S.sec='steady';S.sort='base';
+    // 상호 확인 창이 겹치지 않게 한 곳씩 시작 (조사는 동시에 진행)
+    (async()=>{for(const n of list){const p=research(n);await waitPhase(repKey(n));p;}})();
+    setTimeout(render,50);
+  }
+  else if(a==='open'){S.rep=v;S.view='report';S.sec='steady';S.sort='base';render();const rep=loadRep(v);if(rep)SECTIONS.forEach(s=>{const sec=(rep.sections||{})[s.id];if(sec&&sec.items&&sec.items.some(x=>x.imgState!==2)&&!running[v])fillImages(rep,s.id);});}
+  else if(a==='home'){S.view='home';S.detail=null;render();}
+  else if(a==='settings'){S.view='settings';render();}
+  else if(a==='news'){S.view='news';render();}
+  else if(a==='tab'){S.sec=v;S.sort='base';render();window.scrollTo(0,0);}
+  else if(a==='detail'){S.detail={sec:S.sec,i:+el.dataset.i};render();}
+  else if(a==='close'){S.detail=null;render();}
+  else if(a==='redo'){const rep=loadRep(S.rep);if(rep&&!running[rep.key]){if(!confirm2('다시 조사할까요? (지금 결과는 새 결과로 바뀌어요)'))return;research(rep.name,{reuseInfo:true});}}
+  else if(a==='watch'){const rep=loadRep(S.rep);if(rep)toggleWatch(rep);}
+  else if(a==='unwatch'){setWatch(getWatch().filter(x=>x.name!==v));render();}
+  else if(a==='checknow'){AB&&AB.checkNow();}
+  else if(a==='url'){openUrl(v);}
+  else if(a==='vitrine'){const u=curImg();if(u&&AB)AB.sendToVitrine(u);else toast('앱에서만 돼요');}
+  else if(a==='save'){const u=curImg();if(u&&AB)AB.saveImage(u);}
+  else if(a==='sharetxt'){const x=curItem();const rep=loadRep(S.rep);if(!x)return;
+    const t=`[${rep.name}] ${x.name}\n종류: ${x.type||''}\n${x.desc||''}\n원단: ${x.fabric||''}${x.fabricPt?' ('+x.fabricPt+')':''}\n색상: ${(x.colors||[]).join(', ')}\n가격: ${x.price||''}\n브라질 점수: ${(x.brazil||{}).score??''} — ${(x.brazil||{}).why||''}\n${x.url||''}`;
+    if(AB)AB.shareText(t);else navigator.clipboard&&navigator.clipboard.writeText(t);}
+  else if(a==='savekey'){const k=($('#keyIn').value||'').trim();LS.set('key',k);if(AB)AB.setKey(k);toast('저장했어요');}
+  else if(a==='testkey'){toast('시험 중…');try{await gemini('"연결 성공" 이라고만 답해.',{search:false});toast('✅ 연결 성공!');}catch(e){toast('⚠️ '+errMsg(e),4000);}}
+  else if(a==='clearall'){if(!confirm2('저장한 리포트를 모두 지울까요?'))return;S.index.forEach(r=>{try{localStorage.removeItem('r:'+r.key);}catch(e){}});S.index=[];saveIndex();render();}
+  else if(a==='clearnews'){AB&&AB.setNews('[]');render();}
+}
+function confirm2(t){try{return window.confirm(t);}catch(e){return true;}}
+async function waitPhase(key){for(let k=0;k<400;k++){const r=loadRep(key);if(r&&r.status!=='identify')return;await sleep(500);}}
+
+window.__appBack=()=>{
+  if(document.querySelector('.modal'))return true;
+  if(S.detail){S.detail=null;render();return true;}
+  if(S.view!=='home'){S.view='home';render();return true;}
+  return false;
+};
+// 앱을 껐다 켜서 멈춘 조사는 오류로 표시
+S.index.forEach(r=>{const rp=loadRep(r.key);if(rp&&(rp.status==='run'||rp.status==='identify')){rp.status=Object.values(rp.sections||{}).some(s=>s.status==='done')?'done':'error';rp.error=rp.error||'조사가 중간에 멈췄어요. ↻ 다시 조사를 눌러 주세요';
+  for(const k in rp.sections||{})if(rp.sections[k].status==='run')rp.sections[k]={status:'error',error:'중간에 멈췄어요. ↻ 다시 조사',items:[]};LS.set('r:'+r.key,rp);}});
+if(location.hash==='#news')S.view='news';
+render();
+</script>
+</body>
+</html>

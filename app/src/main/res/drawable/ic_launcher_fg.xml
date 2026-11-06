@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 레이더 원 + 옷걸이 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <path android:strokeColor="#66FFFFFF" android:strokeWidth="2" android:fillColor="#00000000"
+        android:pathData="M54,26 A28,28 0 1,1 53.99,26 Z" />
+    <path android:strokeColor="#33FFFFFF" android:strokeWidth="2" android:fillColor="#00000000"
+        android:pathData="M54,38 A16,16 0 1,1 53.99,38 Z" />
+    <path android:strokeColor="#FFFFFFFF" android:strokeWidth="4" android:strokeLineCap="round" android:strokeLineJoin="round"
+        android:fillColor="#00000000"
+        android:pathData="M49,44 C49,39 59,39 59,44 C59,47 54,48 54,52 L36,63 C33,65 34,68 37,68 L71,68 C74,68 75,65 72,63 L54,52" />
+    <path android:fillColor="#FFF2B36B" android:pathData="M75,30 m-4,0 a4,4 0 1,0 8,0 a4,4 0 1,0 -8,0" />
+</vector>
