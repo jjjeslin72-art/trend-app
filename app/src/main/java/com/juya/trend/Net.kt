@@ -93,7 +93,14 @@ object Net {
                 val code = c.responseCode
                 val txt = (if (code >= 400) c.errorStream else c.inputStream)?.bufferedReader()?.use { it.readText() } ?: ""
                 c.disconnect()
-                if (code !in 200..299) { last = "http $code"; continue }
+                if (code !in 200..299) {
+                    val msg = try { JSONObject(txt).optJSONObject("error")?.optString("message") ?: "" } catch (_: Exception) { "" }
+                    if (code == 400 && msg.contains("API key", true)) throw IllegalStateException("BADKEY")
+                    last = if (msg.contains("billing", true) || msg.contains("FAILED_PRECONDITION")) "구글 AI 결제(카드) 연결이 필요해요"
+                           else if (code == 429) "구글 AI 사용량이 잠깐 많아요. 조금 뒤에 다시 해 주세요"
+                           else msg.ifBlank { "http $code" }
+                    continue
+                }
                 val d = JSONObject(txt)
                 val cand = d.optJSONArray("candidates")?.optJSONObject(0) ?: continue
                 val parts = cand.optJSONObject("content")?.optJSONArray("parts") ?: continue
@@ -104,7 +111,8 @@ object Net {
                     for (i in 0 until ch.length()) ch.optJSONObject(i)?.optJSONObject("web")?.let { src.put(it) }
                 }
                 if (sb.isNotBlank()) return sb.toString() to src
-            } catch (e: Exception) { last = e.message ?: "net" }
+            } catch (e: IllegalStateException) { throw e
+            } catch (e: Exception) { last = "인터넷 연결이 끊겼어요 (" + (e.javaClass.simpleName) + ")" }
         }
         throw RuntimeException(last)
     }

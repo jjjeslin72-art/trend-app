@@ -38,7 +38,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var web: WebView
     private lateinit var root: FrameLayout
     private val ui = Handler(Looper.getMainLooper())
-    private val io = Executors.newFixedThreadPool(4)
+    private val io = Executors.newFixedThreadPool(8)
 
     private val assetLoader by lazy {
         WebViewAssetLoader.Builder()
@@ -224,6 +224,23 @@ class MainActivity : ComponentActivity() {
             val key = BuildConfig.GEMINI_KEY.ifBlank { p.getString("key", "") ?: "" }
             return JSONObject().put("gemini", key).put("built", BuildConfig.GEMINI_KEY.isNotBlank())
                 .put("version", BuildConfig.VERSION_CODE).toString()
+        }
+
+        /** 구글 AI 검색을 휴대폰이 직접 함 (앱에서 나가도 끊기지 않게). 결과 → window.__ask(id, ok, 글) */
+        @JavascriptInterface
+        fun ask(id: String, prompt: String, search: Boolean) {
+            io.execute {
+                val p = getSharedPreferences("app", MODE_PRIVATE)
+                val key = BuildConfig.GEMINI_KEY.ifBlank { p.getString("key", "") ?: "" }
+                val out = try {
+                    if (key.isBlank()) throw IllegalStateException("NOKEY")
+                    val (text, src) = Net.gemini(key, prompt, search)
+                    "true, " + JSONObject.quote(JSONObject().put("text", text).put("sources", src).toString())
+                } catch (e: Exception) {
+                    "false, " + JSONObject.quote(e.message ?: "AI 오류")
+                }
+                js("window.__ask && window.__ask(${JSONObject.quote(id)}, $out)")
+            }
         }
 
         @JavascriptInterface

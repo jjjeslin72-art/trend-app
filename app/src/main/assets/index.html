@@ -104,15 +104,20 @@ function apiKey(){return cfg.gemini||LS.get('key','');}
 const BRANDS=['Zara','Forever 21','Mango','H&M','Bershka','Stradivarius','Pull&Bear','Massimo Dutti','Shein','Chanel','Gucci','Prada','Miu Miu','Dior','Farm Rio','Animale','Renner','C&A','Riachuelo','Zinzane'];
 const COUNTRIES=[['es','🇪🇸 스페인'],['pt','🇵🇹 포르투갈'],['fr','🇫🇷 프랑스'],['it','🇮🇹 이탈리아'],['uk','🇬🇧 영국'],['de','🇩🇪 독일'],['us','🇺🇸 미국'],['kr','🇰🇷 한국'],['jp','🇯🇵 일본'],['cn','🇨🇳 중국'],['mx','🇲🇽 멕시코'],['ar','🇦🇷 아르헨티나'],['cl','🇨🇱 칠레'],['co','🇨🇴 콜롬비아'],['br','🇧🇷 브라질']];
 const cName=c=>(COUNTRIES.find(x=>x[0]===c)||[c,c])[1].replace(/^\S+\s/,'');
+const SHOWS=[['paris','🇫🇷 파리'],['milan','🇮🇹 밀라노'],['ny','🇺🇸 뉴욕'],['london','🇬🇧 런던'],['seoul','🇰🇷 서울'],['spfw','🇧🇷 상파울루(SPFW)'],['cph','🇩🇰 코펜하겐'],['tokyo','🇯🇵 도쿄']];
 const SECTIONS=[
   {id:'steady',icon:'🔁',title:'스테디 모델',long:'몇 년째 계속 다시 만드는 모델'},
   {id:'push',icon:'🔥',title:'2026 주력',long:'2026년에 가장 크게 민 모델'},
   {id:'newin',icon:'🆕',title:'지금 신상',long:'고른 나라 매장에 막 나온 신상'},
 ];
+const secsOf=rep=>(rep&&rep.secs)||SECTIONS;
+const flag=c=>(COUNTRIES.find(x=>x[0]===c)||['',''])[1].split(' ')[0];
 
 const S={
   picked:LS.get('picked',['Zara']),
   countries:LS.get('countries',['es','us','kr']),
+  shows:LS.get('shows',['paris','milan','ny','seoul']),
+  pcountries:LS.get('pcountries',['kr','us','br']),
   index:LS.get('index',[]),   // [{key,name,at}]
   view:'home',rep:null,sec:'steady',sort:'base',detail:null,
 };
@@ -124,12 +129,18 @@ function saveRep(rep){
   const i=S.index.findIndex(x=>x.key===rep.key);const row={key:rep.key,name:rep.name,at:rep.at,thumb:firstImg(rep)};
   if(i>=0)S.index[i]=row;else S.index.unshift(row);saveIndex();
 }
-function firstImg(rep){for(const s of SECTIONS){const it=((rep.sections||{})[s.id]||{}).items||[];for(const x of it)if(x.imgs&&x.imgs[0])return x.imgs[0];}return '';}
+function firstImg(rep){for(const s of secsOf(rep)){const it=((rep.sections||{})[s.id]||{}).items||[];for(const x of it)if(x.imgs&&x.imgs[0])return x.imgs[0];}return '';}
 const img=u=>!u?'':(AB&&/^https?:/.test(u)?'/img?u='+encodeURIComponent(u):u);
 
 /* ---------- 구글 AI (Gemini + 구글 검색) ---------- */
 const MODELS=['gemini-flash-latest','gemini-2.5-flash','gemini-2.5-flash-lite'];
+const askWait={};
+window.__ask=(id,ok,payload)=>{const w=askWait[id];if(!w)return;delete askWait[id];
+  if(ok){let d={};try{d=JSON.parse(payload);}catch(e){}w.res({text:d.text||'',sources:(d.sources||[]).filter(Boolean)});}else w.rej(new Error(payload));};
+function nativeAsk(prompt,search){return new Promise((res,rej)=>{const id='a'+Date.now().toString(36)+Math.random().toString(36).slice(2);askWait[id]={res,rej};
+  setTimeout(()=>{if(askWait[id]){delete askWait[id];rej(new Error('시간이 너무 오래 걸렸어요'));}},420000);AB.ask(id,prompt,!!search);});}
 async function gemini(prompt,{search=true,signal}={}){
+  if(AB&&AB.ask)return nativeAsk(prompt,search);
   const key=apiKey();if(!key)throw new Error('NOKEY');
   let last='';
   for(const m of MODELS){
@@ -188,7 +199,24 @@ const OUT_RULE=`답은 설명 없이 JSON 하나만:
  "items":[...최대 10개...],"videos":[{"title":"영상 제목","url":"유튜브 주소"}]}
 중요: 반드시 구글 검색으로 확인한 사실만 써. 주소(url, img, video)는 절대 지어내지 마 — 모르면 빈칸. 서로 다른 종류(바지·상의·아우터·원피스 등)가 골고루 섞이게, 한두 모델에 몰리지 않게.`;
 
+const PEOPLE_SPEC=`각 의상(items)마다 아래 칸을 채워:
+{"person":"인물 이름","personInfo":"누구인지 한 줄 (예: 가수, 인스타 팔로워 1200만)","name":"의상 한 줄 제목 (한국어)","type":"종류(한국어: 원피스, 바지 세트, 재킷 등)",
+ "desc":"어떤 옷차림인지 한국어 한 줄 (아이템 조합·디테일)","brands":["입은 브랜드 (알면)"],"colors":["색 (한국어)"],
+ "fabric":"원단 (보이는 대로 추측)","fabricGuess":true,"fabricPt":"봉헤치로 원단 이름 (포르투갈어)","fit":"핏","price":"",
+ "countries":[],"brazil":{"score":0~100,"why":"브라질에서 비슷하게 만들어 팔 수 있을지"},
+ "url":"그 의상이 나온 인스타 게시물이나 기사 주소 — 검색에서 확인한 것만, 모르면 빈칸","img":"사진 주소를 확실히 알면","video":"관련 유튜브 영상 주소 (없으면 빈칸)"}`;
+function specialPrompt(rep,sec){
+  const head=`너는 브라질 상파울루 봉헤치로에서 14년째 여성복을 생산·도매하는 한국인 사장님을 돕는 패션 트렌드 리서처야. 오늘 날짜: ${today()}. 반드시 구글 검색으로 최신 자료를 찾아.`;
+  if(rep.kind==='shows'){const nm=(SHOWS.find(x=>x[0]===sec)||[sec,sec])[1].replace(/^\S+\s/,'');
+    return head+`\n\n[할 일] 가장 최근에 열린 ${nm} 패션위크(여성복, 보통 2027 봄여름 SS27 쇼)의 핵심 트렌드 10개를 정리해. 각 트렌드마다 그 트렌드를 보여준 대표 룩 하나를 골라서. 실루엣·색·원단·디테일·아이템이 골고루 섞이게.
+items의 name은 "트렌드 이름 — 대표 브랜드" 형식, brands에는 이 트렌드를 보여준 디자이너·브랜드들, url은 그 쇼 리뷰나 룩 사진이 있는 페이지(보그 런웨이 등).
+`+ITEM_SPEC.replace('"countries":["이 모델이 나온 나라 (한국어 나라 이름)"],','"brands":["이 트렌드를 보여준 브랜드들"],"countries":[],')+'\n\n'+OUT_RULE;}
+  if(rep.kind==='people'){const nm=cName(sec);
+    return head+`\n\n[할 일] 지금 ${nm}에서 여성 패션에 가장 영향력이 큰 인물(인플루언서·연예인·셀럽) 5명을 골라, 각 사람이 최근(2~3달 안) 입은 화제의 의상 2개씩, 모두 10개를 정리해. 사람을 고를 때는 팔로워 수, 옷이 매진되거나 따라 입기가 유행한 정도를 기준으로. summary에 5명이 누구이고 왜 영향력이 큰지 짧게 써.\n\n`+PEOPLE_SPEC+'\n\n'+OUT_RULE.replace('서로 다른 종류(바지·상의·아우터·원피스 등)가 골고루 섞이게, 한두 모델에 몰리지 않게.','한 사람당 2개씩.');}
+  return '';
+}
 function sectionPrompt(rep,sec){
+  if(rep.kind==='shows'||rep.kind==='people')return specialPrompt(rep,sec);
   const base=`너는 브라질 상파울루 봉헤치로에서 14년째 여성복을 생산·도매하는 한국인 사장님을 돕는 패션 트렌드 리서처야. 오늘 날짜: ${today()}.
 ${who(rep)}
 큰 브랜드면 공식 온라인몰·룩북·뉴스 기사·인스타그램을, 작은 가게면 인스타그램·웹사이트·왓츠앱 카탈로그·페이스북·틱톡·구글 지도 사진까지 찾을 수 있는 걸 다 찾아봐. 여성복 위주로.`;
@@ -230,23 +258,60 @@ let workN=0;
 function workMsg(){
   if(!AB||!AB.workUpdate)return;
   const parts=Object.keys(running).map(k=>{const r=loadRep(k)||{};const done=Object.values(r.sections||{}).filter(x=>x.status!=='run').length;
-    return `${r.name||k} ${r.status==='identify'?'확인 중':done+'/3'}`;});
+    return `${r.name||k} ${r.status==='identify'?'확인 중':done+'/'+secsOf(r).length}`;});
   if(parts.length)AB.workUpdate(`🔍 ${parts.join(' · ')} — 끝나면 알려 드릴게요`);
 }
 function workBegin(name){workN++;if(AB&&AB.workStart){if(workN===1)AB.workStart(`🔍 ${name} 조사 중 — 끝나면 알려 드릴게요`);else workMsg();}}
 function workEnd(){workN=Math.max(0,workN-1);if(!AB||!AB.workStop)return;if(workN===0)AB.workStop();else workMsg();}
 function notifyDone(title,text,key){if(AB&&AB.notifyDone)AB.notifyDone(title,text,key);}
-async function research(name,{reuseInfo}={}){
+async function runSection(rep,s){
+  const key=rep.key;
+  rep.sections[s.id]={status:'run',items:[]};saveRep(rep);if(S.rep===key)render();
+  let lastErr=null;
+  for(let t=0;t<3;t++){
+    try{
+      const r=await gemini(sectionPrompt(rep,s.id));
+      let d;try{d=parseJSON(r.text);}catch(e){d=null;}
+      if(!d&&t<2){lastErr=new Error('AI 답을 읽지 못했어요');continue;}
+      d=d||{};if(Array.isArray(d))d={items:d};
+      const items=(d.items||[]).filter(x=>x&&x.name).slice(0,10).map(x=>({...x,imgs:[],imgState:0}));
+      rep.sections[s.id]={status:'done',summary:d.summary||'',note:d.note||(items.length<10?`자료 부족: ${items.length}개만 찾았어요`:''),items,
+        videos:(d.videos||[]).filter(v=>v&&/youtu/.test(v.url||'')).slice(0,6),sources:(r.sources||[]).slice(0,15)};
+      lastErr=null;break;
+    }catch(e){lastErr=e;if(/NOKEY|BADKEY/.test(e.message))break;await sleep(4000*(t+1));}
+  }
+  if(lastErr)rep.sections[s.id]={status:'error',error:errMsg(lastErr),items:[]};
+  saveRep(rep);if(S.rep===key)render();workMsg();
+  fillImages(rep,s.id);
+}
+async function retrySection(secId){
+  const rep=loadRep(S.rep);if(!rep||running[rep.key])return;const s=secsOf(rep).find(x=>x.id===secId);if(!s)return;
+  running[rep.key]=true;workBegin(rep.name);
+  try{await runSection(rep,s);const sec=rep.sections[s.id];
+    if(sec.status==='done')notifyDone(`✅ ${rep.name} · ${s.title} 다시 조사 끝!`,`${sec.items.length}개 · 눌러서 보기`,rep.key);}
+  finally{delete running[rep.key];workEnd();render();}
+}
+/* 패션쇼 동향 / 인플루언서 의상 */
+function special(kind){
+  const list=kind==='shows'?S.shows:S.pcountries;
+  if(!list.length){toast(kind==='shows'?'패션쇼를 골라 주세요':'나라를 골라 주세요');return;}
+  const name=kind==='shows'?'👠 패션쇼 동향':'⭐ 인플루언서·셀럽 의상';
+  const secs=kind==='shows'?list.map(id=>{const sh=SHOWS.find(x=>x[0]===id);return {id,icon:sh[1].split(' ')[0],title:sh[1].replace(/^\S+\s/,''),long:'최근 패션위크 핵심 트렌드'};})
+    :list.map(c=>({id:c,icon:flag(c),title:cName(c),long:'영향력 TOP 5 인물의 최근 의상'}));
+  return research(name,{kind,secs});
+}
+async function research(name,{reuseInfo,kind='brand',secs}={}){
   const key=repKey(name);
   if(running[key])return;
   running[key]=true;
   workBegin(name);
   let rep=loadRep(key)||{key,name,sections:{}};
   rep.name=name;rep.at=Date.now();rep.countries=S.countries.slice();rep.sections={};
-  rep.status='identify';
+  rep.kind=kind;if(secs)rep.secs=secs;else if(kind==='brand')delete rep.secs;
+  rep.status=kind==='brand'?'identify':'run';
   saveRep(rep);render();
   try{
-    if(!(reuseInfo&&rep.info)){
+    if(kind==='brand'&&!(reuseInfo&&rep.info)){
       let info=null;
       try{
         const c=await identify(name);
@@ -256,27 +321,14 @@ async function research(name,{reuseInfo}={}){
       rep.info=info||{name};
     }
     rep.status='run';
-    for(const s of SECTIONS)rep.sections[s.id]={status:'run',items:[]};
+    for(const s of secsOf(rep))rep.sections[s.id]={status:'run',items:[]};
     saveRep(rep);render();
-    await Promise.all(SECTIONS.map(async s=>{
-      try{
-        const r=await gemini(sectionPrompt(rep,s.id));
-        let d;try{d=parseJSON(r.text);}catch(e){d={summary:'',note:'',items:[]};}
-        if(Array.isArray(d))d={items:d};
-        const items=(d.items||[]).filter(x=>x&&x.name).slice(0,10).map(x=>({...x,imgs:[],imgState:0}));
-        rep.sections[s.id]={status:'done',summary:d.summary||'',note:d.note||(items.length<10?`자료 부족: ${items.length}개만 찾았어요`:''),items,
-          videos:(d.videos||[]).filter(v=>v&&/youtu/.test(v.url||'')).slice(0,6),sources:(r.sources||[]).slice(0,15)};
-      }catch(e){
-        rep.sections[s.id]={status:'error',error:errMsg(e),items:[]};
-      }
-      saveRep(rep);if(S.rep===key)render();workMsg();
-      fillImages(rep,s.id);
-    }));
+    await Promise.all(secsOf(rep).map(s=>runSection(rep,s)));
     rep.status='done';saveRep(rep);render();
-    const n=SECTIONS.reduce((a,s)=>a+((rep.sections[s.id]||{}).items||[]).length,0);
-    const bad=SECTIONS.filter(s=>(rep.sections[s.id]||{}).status==='error').length;
+    const n=secsOf(rep).reduce((a,s)=>a+((rep.sections[s.id]||{}).items||[]).length,0);
+    const bad=secsOf(rep).filter(s=>(rep.sections[s.id]||{}).status==='error').length;
     toast(`✅ ${name} 조사 끝!`);
-    notifyDone(`✅ ${name} 조사 끝!`,`모델 ${n}개를 찾았어요${bad?` (${bad}개 항목 오류)`:''} · 눌러서 보기`,key);
+    notifyDone(`✅ ${name} 조사 끝!`,`${n}개를 찾았어요${bad?` (${bad}개 항목 오류)`:''} · 눌러서 보기`,key);
   }catch(e){
     rep.status='error';rep.error=errMsg(e);saveRep(rep);render();
     notifyDone(`⚠️ ${name} 조사 실패`,rep.error,key);
@@ -365,11 +417,13 @@ function toggleWatch(rep){
 }
 function getNews(){try{return AB?JSON.parse(AB.getNews()):[];}catch(e){return [];}}
 window.__openNews=()=>{S.view='news';render();};
-window.__openRep=key=>{if(!loadRep(key))return;if(document.querySelector('.modal'))return;S.rep=key;S.view='report';S.detail=null;S.sec='steady';S.sort='base';render();};
+window.__openRep=key=>{const r=loadRep(key);if(!r)return;if(document.querySelector('.modal'))return;S.rep=key;S.view='report';S.detail=null;S.sec=secsOf(r)[0].id;S.sort='base';render();};
 
 /* ---------- 화면 ---------- */
+let lastPage='';
 function render(){
   const app=$('#app');
+  const page=S.view+'|'+S.rep;if(page!==lastPage){lastPage=page;setTimeout(()=>window.scrollTo(0,0),0);}
   if(S.view==='home')app.innerHTML=homeHTML();
   else if(S.view==='report')app.innerHTML=reportHTML();
   else if(S.view==='settings')app.innerHTML=settingsHTML();
@@ -394,6 +448,13 @@ function homeHTML(){
   <div class="chips">${COUNTRIES.map(([c,n])=>`<button class="chip ${S.countries.includes(c)?'on':''}" data-act="country" data-v="${c}">${n}</button>`).join('')}</div>
   <button class="btn acc big" data-act="go" ${S.picked.length&&S.countries.length?'':'disabled'}>🔍 ${S.picked.length}곳 조사 시작</button>
   <div class="muted" style="text-align:center;margin-top:8px">한 곳에 1~2분 걸려요. 앱에서 나가 다른 일을 해도 돼요 — 끝나면 알림이 와요 🔔</div>
+  <h2>③ 패션쇼 동향 <span class="muted">(쇼마다 핵심 트렌드 10)</span></h2>
+  <div class="chips">${SHOWS.map(([c,n])=>`<button class="chip ${S.shows.includes(c)?'on':''}" data-act="show" data-v="${c}">${n}</button>`).join('')}</div>
+  <button class="btn big" data-act="special" data-v="shows" ${S.shows.length?'':'disabled'}>👠 패션쇼 ${S.shows.length}곳 조사</button>
+  <h2>④ 인플루언서·셀럽 의상 <span class="muted">(나라별 TOP 5)</span></h2>
+  <div class="chips">${COUNTRIES.map(([c,n])=>`<button class="chip ${S.pcountries.includes(c)?'on':''}" data-act="pcountry" data-v="${c}">${n}</button>`).join('')}</div>
+  <button class="btn big" data-act="special" data-v="people" ${S.pcountries.length?'':'disabled'}>⭐ ${S.pcountries.length}개 나라 인물 조사</button>
+  <div class="muted" style="text-align:center;margin-top:8px">나라마다 영향력 큰 5명 × 최근 의상 2개씩</div>
   <h2>저장한 리포트</h2>
   <div class="list">${S.index.length?S.index.map(r=>{const rp=loadRep(r.key)||{};const st=running[r.key]?'<span class="spin"></span>조사 중…':rp.status==='error'?'⚠️ 오류':new Date(r.at).toLocaleDateString('ko-KR');
     return `<div class="card" data-act="open" data-v="${esc(r.key)}"><div class="thumb" style="${r.thumb||firstImg(rp)?`background-image:url('${img(r.thumb||firstImg(rp))}')`:''}"></div>
@@ -411,11 +472,11 @@ function sortedItems(sec){
 function reportHTML(){
   const rep=loadRep(S.rep);if(!rep){S.view='home';return homeHTML();}
   const info=rep.info||{};
-  const head=`<div class="top"><button class="back" data-act="home">‹</button><div class="ttl"><b>${esc(rep.name)}</b><span class="muted">${esc(info.where||'')}${rep.at?' · '+new Date(rep.at).toLocaleDateString('ko-KR'):''}</span></div>
-    <button class="back" data-act="watch" title="새 상품 알림">${isWatched(rep.key)?'🔔':'🔕'}</button><button class="back" data-act="redo" title="다시 조사">↻</button></div>`;
+  const head=`<div class="top"><button class="back" data-act="home">‹</button><div class="ttl"><b>${esc(rep.name)}</b><span class="muted">${esc([rep.kind==='brand'||!rep.kind?info.where:'',rep.at?new Date(rep.at).toLocaleDateString('ko-KR'):''].filter(Boolean).join(' · '))}</span></div>
+    ${rep.kind&&rep.kind!=='brand'?'':`<button class="back" data-act="watch" title="새 상품 알림">${isWatched(rep.key)?'🔔':'🔕'}</button>`}<button class="back" data-act="redo" title="다시 조사">↻</button></div>`;
   if(rep.status==='identify')return `<div class="wrap">${head}<div class="card"><span class="spin"></span>어떤 브랜드(가게)인지 찾는 중…</div></div>`;
   if(rep.status==='error'&&!Object.keys(rep.sections||{}).length)return `<div class="wrap">${head}<div class="err">⚠️ ${esc(rep.error)}</div><button class="btn big" data-act="redo">다시 해 보기</button></div>`;
-  const tabs=`<div class="tabs">${SECTIONS.map(s=>{const sec=(rep.sections||{})[s.id]||{};const n=(sec.items||[]).length;
+  const tabs=`<div class="tabs">${secsOf(rep).map(s=>{const sec=(rep.sections||{})[s.id]||{};const n=(sec.items||[]).length;
     return `<button class="tab ${S.sec===s.id?'on':''}" data-act="tab" data-v="${s.id}">${s.icon} ${s.title}${sec.status==='run'?' …':n?` ${n}`:''}</button>`;}).join('')}
     <button class="tab ${S.sec==='video'?'on':''}" data-act="tab" data-v="video">🎬 영상</button>
     <button class="tab ${S.sec==='src'?'on':''}" data-act="tab" data-v="src">📎 출처</button></div>`;
@@ -423,12 +484,12 @@ function reportHTML(){
   if(S.sec==='video')body=videoHTML(rep);
   else if(S.sec==='src')body=srcHTML(rep);
   else{
-    const meta=SECTIONS.find(s=>s.id===S.sec);const sec=(rep.sections||{})[S.sec]||{};
+    const meta=secsOf(rep).find(s=>s.id===S.sec)||secsOf(rep)[0];const sec=(rep.sections||{})[S.sec]||{};
     if(sec.status==='run')body=`<div class="card"><span class="spin"></span><b>${meta.long}</b> 조사 중… (1~2분)</div><div class="grid">${Array.from({length:4}).map(()=>`<div class="item"><div class="ph load"></div><div class="info"><div class="nm">&nbsp;</div></div></div>`).join('')}</div>`;
-    else if(sec.status==='error')body=`<div class="err">⚠️ ${esc(sec.error)}</div><button class="btn big" data-act="redo">다시 조사</button>`;
+    else if(sec.status==='error')body=`<div class="err">⚠️ ${esc(sec.error)}</div><button class="btn big" data-act="retrysec" data-v="${esc(S.sec)}">↻ 이 항목만 다시 조사</button>`;
     else{
       const items=sortedItems(sec);
-      body=`<div class="muted" style="margin-bottom:8px">${meta.long}${S.sec==='newin'?' · '+(rep.countries||[]).map(cName).join(', '):''}</div>
+      body=`<div class="muted" style="margin-bottom:8px">${meta.long}${S.sec==='newin'&&rep.kind!=='people'?' · '+(rep.countries||[]).map(cName).join(', '):''}</div>
       ${sec.summary?`<div class="sum">${esc(sec.summary)}</div>`:''}${sec.note?`<div class="note">📌 ${esc(sec.note)}</div>`:''}
       <div class="row" style="justify-content:space-between;margin-bottom:10px"><span class="muted">${items.length}개 · 눌러서 자세히</span>
       <select class="sel" id="sortSel"><option value="base">기본 순서</option><option value="score">🇧🇷 브라질 점수순</option><option value="countries">🌍 나라 많은 순</option><option value="type">종류별</option></select></div>
@@ -444,11 +505,11 @@ function cardHTML(x,i,secId){
     <div class="ph ${x.imgState===2?'':'load'}" ${ph}>${x.imgs&&x.imgs[0]?'':(x.imgState===2?'👗':'')}</div>
     <div class="badges">${sc!=null&&sc!==''?`<span class="bd ${scoreCls(sc)}">🇧🇷 ${esc(sc)}</span>`:''}${secId==='newin'&&cn>=2?`<span class="bd">🌍 ${cn}개국</span>`:''}</div>
     <span class="num">${x.imgs&&x.imgs.length>1?'📷'+x.imgs.length:''}</span>
-    <div class="info"><div class="nm">${esc(x.name)}</div><div class="ty">${esc(x.type||'')}${x.fabric?' · '+esc(x.fabric):''}</div></div></button>`;
+    <div class="info"><div class="nm">${esc(x.name)}</div><div class="ty">${x.person?'⭐ '+esc(x.person)+' · ':''}${esc(x.type||'')}${!x.person&&x.fabric?' · '+esc(x.fabric):''}</div></div></button>`;
 }
 function allVideos(rep){
   const seen=new Set(),out=[];
-  for(const s of SECTIONS){const sec=(rep.sections||{})[s.id]||{};
+  for(const s of secsOf(rep)){const sec=(rep.sections||{})[s.id]||{};
     for(const v of sec.videos||[]){const id=ytId(v.url);if(id&&!seen.has(id)){seen.add(id);out.push({...v,id,from:s.title});}}
     for(const x of sec.items||[]){const id=ytId(x.video);if(id&&!seen.has(id)){seen.add(id);out.push({title:x.name,url:x.video,id,from:s.title});}}}
   return out;
@@ -467,7 +528,7 @@ function videoHTML(rep){
 }
 function srcHTML(rep){
   let h='<div class="muted" style="margin-bottom:8px">AI가 조사할 때 본 자료예요. 눌러서 원문을 볼 수 있어요</div>';
-  for(const s of SECTIONS){const src=((rep.sections||{})[s.id]||{}).sources||[];if(!src.length)continue;
+  for(const s of secsOf(rep)){const src=((rep.sections||{})[s.id]||{}).sources||[];if(!src.length)continue;
     h+=`<h2>${s.icon} ${s.title}</h2>`+src.map(x=>`<button class="pick" data-act="url" data-v="${esc(x.uri)}"><b style="font-size:14px">${esc(x.title||x.uri)}</b></button>`).join('');}
   return h;
 }
@@ -483,6 +544,8 @@ function detailHTML(){
   ${gal}
   <div class="card"><div style="line-height:1.5">${esc(x.desc||'')}</div></div>
   <div class="card kv">
+    ${x.person?`<div class="k">인물</div><div><b>${esc(x.person)}</b>${x.personInfo?`<div class="muted">${esc(x.personInfo)}</div>`:''}</div>`:''}
+    ${x.brands&&x.brands.length?`<div class="k">브랜드</div><div>${esc(x.brands.join(', '))}</div>`:''}
     <div class="k">원단</div><div><b>${esc(x.fabric||'정보 없음')}</b>${x.fabricGuess?' <span class="muted">(사진 보고 추측)</span>':''}${x.fabricPt?`<div class="muted">봉헤치로에서: ${esc(x.fabricPt)}</div>`:''}</div>
     ${x.colors&&x.colors.length?`<div class="k">색상</div><div>${esc(x.colors.join(', '))}</div>`:''}
     ${x.fit?`<div class="k">핏</div><div>${esc(x.fit)}</div>`:''}
@@ -542,14 +605,18 @@ async function act(a,v,el){
     (async()=>{for(const n of list){const p=research(n);await waitPhase(repKey(n));p;}})();
     setTimeout(render,50);
   }
-  else if(a==='open'){S.rep=v;S.view='report';S.sec='steady';S.sort='base';render();const rep=loadRep(v);if(rep)SECTIONS.forEach(s=>{const sec=(rep.sections||{})[s.id];if(sec&&sec.items&&sec.items.some(x=>x.imgState!==2)&&!running[v])fillImages(rep,s.id);});}
+  else if(a==='open'){const rep=loadRep(v);S.rep=v;S.view='report';S.sec=rep?secsOf(rep)[0].id:'steady';S.sort='base';render();if(rep)secsOf(rep).forEach(s=>{const sec=(rep.sections||{})[s.id];if(sec&&sec.items&&sec.items.some(x=>x.imgState!==2)&&!running[v])fillImages(rep,s.id);});}
   else if(a==='home'){S.view='home';S.detail=null;render();}
   else if(a==='settings'){S.view='settings';render();}
   else if(a==='news'){S.view='news';render();}
   else if(a==='tab'){S.sec=v;S.sort='base';render();window.scrollTo(0,0);}
   else if(a==='detail'){S.detail={sec:S.sec,i:+el.dataset.i};render();}
   else if(a==='close'){S.detail=null;render();}
-  else if(a==='redo'){const rep=loadRep(S.rep);if(rep&&!running[rep.key]){if(!confirm2('다시 조사할까요? (지금 결과는 새 결과로 바뀌어요)'))return;research(rep.name,{reuseInfo:true});}}
+  else if(a==='redo'){const rep=loadRep(S.rep);if(rep&&!running[rep.key]){if(!confirm2('다시 조사할까요? (지금 결과는 새 결과로 바뀌어요)'))return;research(rep.name,{reuseInfo:true,kind:rep.kind||'brand',secs:rep.secs});}}
+  else if(a==='retrysec'){retrySection(v);}
+  else if(a==='special'){if(!apiKey()&&!(AB&&AB.ask)){toast('먼저 ⚙️ 설정에서 키를 넣어 주세요');return;}const p=special(v);const k=repKey(v==='shows'?'👠 패션쇼 동향':'⭐ 인플루언서·셀럽 의상');S.rep=k;S.view='report';S.sec=v==='shows'?S.shows[0]:S.pcountries[0];S.sort='base';setTimeout(render,50);}
+  else if(a==='show'){S.shows=S.shows.includes(v)?S.shows.filter(x=>x!==v):[...S.shows,v];LS.set('shows',S.shows);render();}
+  else if(a==='pcountry'){S.pcountries=S.pcountries.includes(v)?S.pcountries.filter(x=>x!==v):[...S.pcountries,v];LS.set('pcountries',S.pcountries);render();}
   else if(a==='watch'){const rep=loadRep(S.rep);if(rep)toggleWatch(rep);}
   else if(a==='unwatch'){setWatch(getWatch().filter(x=>x.name!==v));render();}
   else if(a==='checknow'){AB&&AB.checkNow();}
