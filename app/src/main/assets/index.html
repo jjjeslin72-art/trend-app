@@ -88,6 +88,12 @@ a{color:var(--acc)}
 .ask{position:sticky;bottom:0;background:var(--bg);padding:10px 0 12px;display:flex;gap:8px;align-items:flex-end}
 .ask textarea{flex:1;min-width:0;resize:none;padding:12px 13px;border-radius:14px;border:1.5px solid var(--line);font:inherit;max-height:120px;outline:none}
 .shop{font-size:14px;line-height:1.5}.shop .btns{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}.shop .btns .chip{font-size:13px}
+.fc{background:#fff;border:1px solid var(--line);border-radius:18px;padding:14px;margin:10px 0}
+.fc .hd{display:flex;align-items:center;gap:12px}.fc .sw{width:54px;height:54px;border-radius:50%;flex:none;border:1px solid rgba(0,0,0,.08);display:flex;align-items:center;justify-content:center;font-size:26px;background:#F1ECE4}
+.fc .nm{font-weight:800;font-size:16px}.fc .rk{font-size:12px;font-weight:800;color:var(--acc)}
+.fc .ln{font-size:14px;line-height:1.5;margin-top:8px}.fc .ln b{display:inline-block;min-width:62px;color:var(--sub);font-weight:600}
+.fc .br{background:#EAF6EF;border-radius:10px;padding:8px 10px;margin-top:8px;font-size:14px;line-height:1.5}
+.pal{display:flex;border-radius:14px;overflow:hidden;height:46px;margin:6px 0 12px;border:1px solid var(--line)}.pal div{flex:1}
 .src{font-size:12px;color:var(--sub);word-break:break-all;margin:4px 0}
 </style>
 </head>
@@ -110,6 +116,8 @@ const BRANDS=['Zara','Forever 21','Mango','H&M','Bershka','Stradivarius','Pull&B
 const COUNTRIES=[['es','🇪🇸 스페인'],['pt','🇵🇹 포르투갈'],['fr','🇫🇷 프랑스'],['it','🇮🇹 이탈리아'],['uk','🇬🇧 영국'],['de','🇩🇪 독일'],['us','🇺🇸 미국'],['kr','🇰🇷 한국'],['jp','🇯🇵 일본'],['cn','🇨🇳 중국'],['mx','🇲🇽 멕시코'],['ar','🇦🇷 아르헨티나'],['cl','🇨🇱 칠레'],['co','🇨🇴 콜롬비아'],['br','🇧🇷 브라질']];
 const cName=c=>(COUNTRIES.find(x=>x[0]===c)||[c,c])[1].replace(/^\S+\s/,'');
 const SHOWS=[['paris','🇫🇷 파리'],['milan','🇮🇹 밀라노'],['ny','🇺🇸 뉴욕'],['london','🇬🇧 런던'],['seoul','🇰🇷 서울'],['spfw','🇧🇷 상파울루(SPFW)'],['cph','🇩🇰 코펜하겐'],['tokyo','🇯🇵 도쿄']];
+const MARKETS=[['shein','SHEIN'],['temu','Temu'],['aliexpress','AliExpress'],['shopee','Shopee'],['tiktok','TikTok Shop'],['meli','Mercado Livre']];
+const SPECIAL={shows:'👠 패션쇼 동향',people:'⭐ 인플루언서·셀럽 의상',market:'🛒 쇼핑몰 베스트셀러',forecast:'🔮 2027 전망 · 요점 정리'};
 const SECTIONS=[
   {id:'steady',icon:'🔁',title:'스테디 모델',long:'몇 년째 계속 다시 만드는 모델'},
   {id:'push',icon:'🔥',title:'2026 주력',long:'2026년에 가장 크게 민 모델'},
@@ -123,6 +131,8 @@ const S={
   countries:LS.get('countries',['es','us','kr']),
   shows:LS.get('shows',['paris','milan','ny','seoul']),
   pcountries:LS.get('pcountries',['kr','us','br']),
+  markets:LS.get('markets',['shein','temu']),
+  ncolors:LS.get('ncolors',7),
   index:LS.get('index',[]),   // [{key,name,at}]
   view:'home',rep:null,sec:'steady',sort:'base',detail:null,
 };
@@ -218,10 +228,63 @@ items의 name은 "트렌드 이름 — 대표 브랜드" 형식, brands에는 �
 `+ITEM_SPEC.replace('"countries":["이 모델이 나온 나라 (한국어 나라 이름)"],','"brands":["이 트렌드를 보여준 브랜드들"],"countries":[],')+'\n\n'+OUT_RULE;}
   if(rep.kind==='people'){const nm=cName(sec);
     return head+`\n\n[할 일] 지금 ${nm}에서 여성 패션에 가장 영향력이 큰 인물(인플루언서·연예인·셀럽) 5명을 골라, 각 사람이 최근(2~3달 안) 입은 화제의 의상 2개씩, 모두 10개를 정리해. 사람을 고를 때는 팔로워 수, 옷이 매진되거나 따라 입기가 유행한 정도를 기준으로. summary에 5명이 누구이고 왜 영향력이 큰지 짧게 써.\n\n`+PEOPLE_SPEC+'\n\n'+OUT_RULE.replace('서로 다른 종류(바지·상의·아우터·원피스 등)가 골고루 섞이게, 한두 모델에 몰리지 않게.','한 사람당 2개씩.');}
+  if(rep.kind==='market'){const nm=(MARKETS.find(x=>x[0]===sec)||[sec,sec])[1];
+    return head+`\n\n[할 일] 지금(최근 2~4주) ${nm}에서 여성복 중 가장 많이 팔리고 있는 옷 10개를 찾아 (베스트셀러·인기순·판매량·리뷰 수·'trending' 표시 기준). 브라질판 사이트가 있으면 브라질판을 먼저 보고, 없으면 미국·전 세계판. 바지·상의·원피스·세트·아우터 등 종류가 골고루 섞이게.
+각 모델의 countries에는 잘 팔리는 나라, price에는 사이트 판매가, desc 끝에 판매량·리뷰 수를 알면 괄호로. url은 상품 페이지 주소(확인된 것만).\n\n`+ITEM_SPEC+'\n\n'+OUT_RULE;}
+  if(rep.kind==='forecast'){const ctx=savedContext();
+    const base=head+`\n2027년 브라질 시즌: 2027 가을겨울(3~8월), 2027/28 봄여름(9월~2028년 2월). 세계 흐름(유럽·미국·아시아·쉐인 같은 중국 대형 쇼핑몰)과 브라질 전망이 다를 때는 꼭 짚어서 (예: 세계는 리넨이 뜨지만 브라질에서는 값과 날씨 때문에 시폰·비스코스가 뜰 것).
+사장님 경험: 세계에서 유행하는 색(예: 보라)이라도 브라질에서는 유행하지 않는 경우가 많다. 브라질에는 늘 기본으로 나가는 색이 있고, 그것과 별개로 그 해에 유행하는 색이 따로 있다. 그래서 가장 중요한 근거는 브라질 원단 회사(tecelagem·malharia·원단 수입·도매상, 브라스·봉헤치로 원단 가게)가 실제로 들여오는 원단과 색, 그리고 브라질 매장·쇼핑몰에서 실제로 팔리는 것이다. 세계 자료는 참고만.
+트렌드 예측 기관(WGSN, Pantone, Première Vision, 브라질 SPFW·Abit·Texbrasil 등) 자료와 쇼핑몰 판매 흐름을 근거로.
+${ctx?'[사장님이 이미 조사해 둔 리포트에서 많이 나온 것]\n'+ctx+'\n':''}`;
+    const out=`답은 설명 없이 JSON 하나만: {"summary":"전체 전망 요약 (한국어 3~4문장)","note":"","items":[...]}  지어내지 말고 근거 있는 것만.`;
+    if(sec==='fabric')return base+`\n[할 일] 2027년에 쓸 원단 TOP 5를 골라 (1위부터 순서대로). 브라질 봉헤치로 도매에서 실제로 쓸 수 있는 원단으로.
+items 각각: {"name":"원단 이름(한국어)","namePt":"봉헤치로 원단 가게에서 부르는 포르투갈어 이름","world":"세계 흐름 한두 줄","outlook":"브라질 전망 한두 줄 (세계와 다르면 왜 다른지)","use":["어울리는 옷 종류"],"season":"어느 시즌에 강한지","price":"봉헤치로 대략 가격대 (미터당 R$, 확실치 않으면 '추정')","brazil":{"score":0~100,"why":"브라질에서 뜰 가능성 이유"},"url":"근거 자료 주소(확인된 것만)"}\n`+out;
+    if(sec==='color')return base+`\n[할 일] 브라질 여성복 색을 세 그룹으로 정리해:
+(1) group "base": 브라질에서 해마다 늘 기본으로 나가는 색 5개 (많이 팔리는 순)
+(2) group "trend": 2027년 브라질에서 유행할 색 ${rep.ncolors||7}개 (기본색과 겹치지 않게, 가능성 높은 순) — 브라질 원단 회사들이 들여오는 색을 근거로
+(3) group "worldOnly": 세계에서는 유행하지만 브라질에서는 안 뜰 것 같은 색 2~3개와 그 이유
+items 각각: {"group":"base 또는 trend 또는 worldOnly","name":"색 이름(한국어)","namePt":"포르투갈어 색 이름","hex":"#RRGGBB (그 색에 가장 가까운 값)","world":"세계 흐름 한두 줄","outlook":"브라질 전망 한두 줄","use":["어울리는 옷 종류"],"fabric":"이 색에 어울리는 원단","pairs":["같이 쓰면 좋은 색"],"brazil":{"score":0~100,"why":"이유"},"url":"근거 자료 주소(확인된 것만)"}\n`+out;
+    if(sec==='mills')return base+`\n[할 일] 브라질 원단 회사·원단 도매상들이 2027년(2027 가을겨울, 2027/28 봄여름) 컬렉션으로 들여오거나 밀고 있는 원단과 색을 조사해. 찾을 곳: 대형 tecelagem·malharia의 새 컬렉션 발표, 원단 박람회(Febratex, Première Vision 상파울루 등), Senai Cetiqt·Abit·Texbrasil 트렌드 자료, 브라스·봉헤치로 원단 가게 인스타그램 신상. 회사(또는 자료) 8~10개.
+items 각각: {"name":"회사·가게·자료 이름","where":"도시·종류 (예: 산타카타리나 니트 원단 회사 / 브라스 원단 도매상)","fabrics":["밀고 있는 원단"],"colors":["밀고 있는 색"],"note":"요점 한두 줄 (한국어)","url":"근거 주소(확인된 것만)","instagram":"@계정(확인된 것만)"}\n`+out;
+    if(sec==='brief'){const dig=forecastDigest(rep);
+      return base+`\n[할 일] 아래 조사 결과를 모아서 봉헤치로 도매 사장님이 바로 쓸 "2027 요점 정리"를 만들어. 짧고 실용적으로.
+${dig}
+답은 JSON 하나만: {"summary":"한 문단 요약 (3문장)","note":"","items":[
+ {"title":"지금 바로 만들 것 (2026/27 여름 남은 기간)","points":["..."]},
+ {"title":"2027 가을겨울 준비","points":["..."]},
+ {"title":"2027/28 여름 준비","points":["..."]},
+ {"title":"원단 TOP 5","points":["원단 — 이유"]},
+ {"title":"색: 기본색 + 유행색","points":["..."]},
+ {"title":"피할 것 (세계 유행이지만 브라질은 아님)","points":["..."]},
+ {"title":"이번 주에 할 일","points":["원단 가게에 물어볼 것 등"]}]}  각 points는 3~5줄, 한 줄은 짧게.`;}
+    return base+`\n[할 일] 2027년 브라질에서 뜰 여성복 아이템·실루엣 TOP 10 (예: 와이드 팬츠, 코르셋 탑, 드레이프 원피스). name은 아이템 이름(한국어), url·img는 그 아이템 예시 상품 페이지(확인된 것만).\n\n`+ITEM_SPEC+'\n\n'+OUT_RULE;}
   return '';
 }
+function forecastDigest(rep){
+  const L=[];const sec=id=>((rep.sections||{})[id]||{});
+  const c=sec('color').items||[];if(c.length)L.push('[색] '+c.map(x=>`${x.group||''}:${x.name}`).join(', '));
+  const f=sec('fabric').items||[];if(f.length)L.push('[원단] '+f.map(x=>`${x.name}(${x.namePt||''}) ${x.outlook||''}`).join(' / '));
+  const m=sec('mills').items||[];if(m.length)L.push('[브라질 원단 회사] '+m.map(x=>`${x.name}: ${(x.fabrics||[]).join(',')} / ${(x.colors||[]).join(',')}`).join(' | '));
+  const it=sec('item').items||[];if(it.length)L.push('[아이템] '+it.map(x=>`${x.name}(${(x.brazil||{}).score??''})`).join(', '));
+  // 다른 리포트에서 브라질 점수 높은 모델
+  const hi=[];for(const r of S.index){const rp=loadRep(r.key);if(!rp||rp.kind==='forecast')continue;
+    for(const s of secsOf(rp))for(const x of ((rp.sections||{})[s.id]||{}).items||[])if(((x.brazil||{}).score||0)>=80)hi.push(`${rp.name}:${x.name}(${x.type||''},${x.fabric||''})`);}
+  if(hi.length)L.push('[저장한 리포트에서 브라질 점수 80 이상] '+hi.slice(0,30).join(' | '));
+  return L.join('\n').slice(0,12000);
+}
+/* 저장한 리포트들에서 많이 나온 원단·색 (전망할 때 근거로) */
+function savedContext(){
+  const fab={},col={},names=[];
+  for(const r of S.index){const rp=loadRep(r.key);if(!rp||rp.kind==='forecast')continue;names.push(rp.name);
+    for(const s of secsOf(rp))for(const x of ((rp.sections||{})[s.id]||{}).items||[]){
+      const f=String(x.fabric||'').replace(/\d+\s*%/g,'').split(/[,/+·]/).map(t=>t.trim()).filter(t=>t&&t.length<20);
+      f.forEach(t=>fab[t]=(fab[t]||0)+1);(x.colors||[]).forEach(c=>{c=String(c).trim();if(c)col[c]=(col[c]||0)+1;});}}
+  const top=o=>Object.entries(o).sort((a,b)=>b[1]-a[1]).slice(0,15).map(([k,v])=>`${k}(${v})`).join(', ');
+  if(!names.length)return '';
+  return `리포트: ${names.slice(0,20).join(', ')}\n원단: ${top(fab)}\n색: ${top(col)}`;
+}
 function sectionPrompt(rep,sec){
-  if(rep.kind==='shows'||rep.kind==='people')return specialPrompt(rep,sec);
+  if(rep.kind&&rep.kind!=='brand')return specialPrompt(rep,sec);
   const base=`너는 브라질 상파울루 봉헤치로에서 14년째 여성복을 생산·도매하는 한국인 사장님을 돕는 패션 트렌드 리서처야. 오늘 날짜: ${today()}.
 ${who(rep)}
 큰 브랜드면 공식 온라인몰·룩북·뉴스 기사·인스타그램을, 작은 가게면 인스타그램·웹사이트·왓츠앱 카탈로그·페이스북·틱톡·구글 지도 사진까지 찾을 수 있는 걸 다 찾아봐. 여성복 위주로.`;
@@ -281,15 +344,15 @@ async function runSection(rep,s){
       let d;try{d=parseJSON(r.text);}catch(e){d=null;}
       if(!d&&t<2){lastErr=new Error('AI 답을 읽지 못했어요');continue;}
       d=d||{};if(Array.isArray(d))d={items:d};
-      const items=(d.items||[]).filter(x=>x&&x.name).slice(0,10).map(x=>({...x,imgs:[],imgState:0}));
-      rep.sections[s.id]={status:'done',summary:d.summary||'',note:d.note||(items.length<10?`자료 부족: ${items.length}개만 찾았어요`:''),items,
+      const items=(d.items||[]).filter(x=>x&&(x.name||x.title)).slice(0,12).map(x=>({...x,imgs:[],imgState:0}));
+      rep.sections[s.id]={status:'done',summary:d.summary||'',note:d.note||(items.length<10&&!(rep.kind==='forecast'&&s.id!=='item')?`자료 부족: ${items.length}개만 찾았어요`:''),items,
         videos:(d.videos||[]).filter(v=>v&&/youtu/.test(v.url||'')).slice(0,6),sources:(r.sources||[]).slice(0,15)};
       lastErr=null;break;
     }catch(e){lastErr=e;if(/NOKEY|BADKEY/.test(e.message))break;await sleep(4000*(t+1));}
   }
   if(lastErr)rep.sections[s.id]={status:'error',error:errMsg(lastErr),items:[]};
   saveRep(rep);if(S.rep===key)render();workMsg();
-  fillImages(rep,s.id);
+  if(!(rep.kind==='forecast'&&s.id!=='item'))fillImages(rep,s.id);
 }
 /* 주소·연락처 찾기 (이미 만든 리포트용) */
 const addrBusy={};
@@ -336,7 +399,7 @@ function qaContext(rep){
   const lines=[];
   for(const s of secsOf(rep)){const sec=(rep.sections||{})[s.id]||{};if(!sec.items||!sec.items.length)continue;
     lines.push(`[${s.title}] ${sec.summary||''}`);
-    sec.items.forEach((x,i)=>lines.push(`- ${i+1}. ${x.person?x.person+': ':''}${x.name} (${x.type||''}) 원단:${x.fabric||'?'} 색:${(x.colors||[]).join('/')} 가격:${x.price||'?'} 브라질점수:${(x.brazil||{}).score??'?'} ${x.url||''}`));}
+    sec.items.forEach((x,i)=>lines.push(x.title?`- ${x.title}: ${(x.points||[]).join(' / ')}`:x.group||x.where?`- ${x.group?x.group+' 색 ':''}${x.name} ${x.where||''} ${(x.fabrics||[]).join(',')} ${(x.colors||[]).join(',')} ${x.outlook||''} ${x.note||''}`:`- ${i+1}. ${x.person?x.person+': ':''}${x.name} (${x.type||''}) 원단:${x.fabric||'?'} 색:${(x.colors||[]).join('/')} 가격:${x.price||'?'} 브라질점수:${(x.brazil||{}).score??'?'}${x.outlook?' 브라질전망:'+x.outlook:''}${x.world?' 세계:'+x.world:''} ${x.url||''}`));}
   return lines.join('\n').slice(0,14000);
 }
 async function askQuestion(q){
@@ -375,7 +438,9 @@ function fmtAnswer(a){
 }
 function qaHTML(rep){
   const qa=rep.qa||[];
-  const ex=rep.kind==='people'?['이 중에 브라질에서 바로 따라 만들기 좋은 의상은?','제일 많이 나온 색은?']
+  const ex=rep.kind==='forecast'?['세계 유행인데 브라질에선 안 될 것은?','유행색으로 신상 5개 기획해 줘','이 원단들 봉헤치로·브라스 어디서 사?']
+    :rep.kind==='market'?['쉐인·테무에 공통으로 많이 팔리는 건?','봉헤치로에서 바로 만들 만한 건?']
+    :rep.kind==='people'?['이 중에 브라질에서 바로 따라 만들기 좋은 의상은?','제일 많이 나온 색은?']
     :rep.kind==='shows'?['쇼들에서 공통으로 나온 트렌드는?','봉헤치로에서 바로 만들 만한 건?']
     :['이 중에 내년 여름에 만들기 좋은 3개는?','원단 비용이 제일 적게 드는 모델은?','이 가게 주력 가격대는?'];
   return `${qa.length?'':`<div class="muted" style="margin-bottom:8px">이 리포트에 대해 무엇이든 물어보세요. 필요하면 AI가 인터넷도 찾아봐요</div>
@@ -392,13 +457,20 @@ async function retrySection(secId){
   finally{delete running[rep.key];workEnd();render();}
 }
 /* 패션쇼 동향 / 인플루언서 의상 */
+function specialSecs(kind){
+  if(kind==='shows')return S.shows.map(id=>{const sh=SHOWS.find(x=>x[0]===id);return {id,icon:sh[1].split(' ')[0],title:sh[1].replace(/^\S+\s/,''),long:'최근 패션위크 핵심 트렌드'};});
+  if(kind==='people')return S.pcountries.map(c=>({id:c,icon:flag(c),title:cName(c),long:'영향력 TOP 5 인물의 최근 의상'}));
+  if(kind==='market')return S.markets.map(m=>({id:m,icon:'🛒',title:(MARKETS.find(x=>x[0]===m)||[m,m])[1],long:'지금 가장 많이 팔리는 여성복'}));
+  return [{id:'brief',icon:'📝',title:'요점 정리',long:'전부 모아서 한눈에 — 무엇을 만들고, 어떤 원단·색을 쓸지'},
+    {id:'color',icon:'🎨',title:`색상`,long:`브라질 기본색 5 + 2027 유행색 ${S.ncolors} + 브라질에선 안 뜨는 색`},
+    {id:'fabric',icon:'🧵',title:'원단 TOP 5',long:'2027 원단 전망 — 세계 흐름 vs 브라질'},
+    {id:'mills',icon:'🏭',title:'브라질 원단 회사',long:'브라질 원단 회사·원단 도매상이 들여오는 원단과 색'},
+    {id:'item',icon:'👗',title:'아이템 TOP 10',long:'2027 브라질에서 뜰 아이템·실루엣'}];
+}
 function special(kind){
-  const list=kind==='shows'?S.shows:S.pcountries;
-  if(!list.length){toast(kind==='shows'?'패션쇼를 골라 주세요':'나라를 골라 주세요');return;}
-  const name=kind==='shows'?'👠 패션쇼 동향':'⭐ 인플루언서·셀럽 의상';
-  const secs=kind==='shows'?list.map(id=>{const sh=SHOWS.find(x=>x[0]===id);return {id,icon:sh[1].split(' ')[0],title:sh[1].replace(/^\S+\s/,''),long:'최근 패션위크 핵심 트렌드'};})
-    :list.map(c=>({id:c,icon:flag(c),title:cName(c),long:'영향력 TOP 5 인물의 최근 의상'}));
-  return research(name,{kind,secs});
+  const secs=specialSecs(kind);
+  if(!secs.length){toast('먼저 골라 주세요');return null;}
+  return research(SPECIAL[kind],{kind,secs});
 }
 async function research(name,{reuseInfo,kind='brand',secs}={}){
   const key=repKey(name);
@@ -407,7 +479,7 @@ async function research(name,{reuseInfo,kind='brand',secs}={}){
   workBegin(name);
   let rep=loadRep(key)||{key,name,sections:{}};
   rep.name=name;rep.at=Date.now();rep.countries=S.countries.slice();rep.sections={};
-  rep.kind=kind;if(secs)rep.secs=secs;else if(kind==='brand')delete rep.secs;
+  rep.kind=kind;if(kind==='forecast')rep.ncolors=S.ncolors;if(secs)rep.secs=secs;else if(kind==='brand')delete rep.secs;
   rep.status=kind==='brand'?'identify':'run';
   saveRep(rep);render();
   try{
@@ -423,7 +495,9 @@ async function research(name,{reuseInfo,kind='brand',secs}={}){
     rep.status='run';
     for(const s of secsOf(rep))rep.sections[s.id]={status:'run',items:[]};
     saveRep(rep);render();
-    await Promise.all(secsOf(rep).map(s=>runSection(rep,s)));
+    const all=secsOf(rep),later=rep.kind==='forecast'?all.filter(s=>s.id==='brief'):[];
+    await Promise.all(all.filter(s=>!later.includes(s)).map(s=>runSection(rep,s)));
+    for(const s of later)await runSection(rep,s);
     rep.status='done';saveRep(rep);render();
     const n=secsOf(rep).reduce((a,s)=>a+((rep.sections[s.id]||{}).items||[]).length,0);
     const bad=secsOf(rep).filter(s=>(rep.sections[s.id]||{}).status==='error').length;
@@ -555,6 +629,13 @@ function homeHTML(){
   <div class="chips">${COUNTRIES.map(([c,n])=>`<button class="chip ${S.pcountries.includes(c)?'on':''}" data-act="pcountry" data-v="${c}">${n}</button>`).join('')}</div>
   <button class="btn big" data-act="special" data-v="people" ${S.pcountries.length?'':'disabled'}>⭐ ${S.pcountries.length}개 나라 인물 조사</button>
   <div class="muted" style="text-align:center;margin-top:8px">나라마다 영향력 큰 5명 × 최근 의상 2개씩</div>
+  <h2>⑤ 쇼핑몰 베스트셀러 <span class="muted">(유행이 제일 빠른 곳)</span></h2>
+  <div class="chips">${MARKETS.map(([c,n])=>`<button class="chip ${S.markets.includes(c)?'on':''}" data-act="market" data-v="${c}">${n}</button>`).join('')}</div>
+  <button class="btn big" data-act="special" data-v="market" ${S.markets.length?'':'disabled'}>🛒 ${S.markets.length}곳 베스트셀러 조사</button>
+  <h2>⑥ 2027 전망 · 요점 정리</h2>
+  <div class="muted">브라질 원단 회사가 들여오는 원단·색을 근거로, 기본색과 유행색을 나눠서 정리해요. 위에서 조사한 리포트들도 모두 모아 📝 요점 정리를 만들어요</div>
+  <div class="chips"><span class="muted" style="align-self:center">유행색</span>${[5,7].map(n=>`<button class="chip ${S.ncolors===n?'on':''}" data-act="ncolors" data-v="${n}">${n}가지</button>`).join('')}</div>
+  <button class="btn acc big" data-act="special" data-v="forecast">🔮 2027 전망 + 📝 요점 정리 만들기</button>
   <h2>저장한 리포트</h2>
   <div class="list">${S.index.length?S.index.map(r=>{const rp=loadRep(r.key)||{};const st=running[r.key]?'<span class="spin"></span>조사 중…':rp.status==='error'?'⚠️ 오류':new Date(r.at).toLocaleDateString('ko-KR');
     return `<div class="card" data-act="open" data-v="${esc(r.key)}"><div class="thumb" style="${r.thumb||firstImg(rp)?`background-image:url('${img(r.thumb||firstImg(rp))}')`:''}"></div>
@@ -577,7 +658,7 @@ function reportHTML(){
   if(rep.status==='identify')return `<div class="wrap">${head}<div class="card"><span class="spin"></span>어떤 브랜드(가게)인지 찾는 중…</div></div>`;
   if(rep.status==='error'&&!Object.keys(rep.sections||{}).length)return `<div class="wrap">${head}<div class="err">⚠️ ${esc(rep.error)}</div><button class="btn big" data-act="redo">다시 해 보기</button></div>`;
   const tabs=`<div class="tabs">${secsOf(rep).map(s=>{const sec=(rep.sections||{})[s.id]||{};const n=(sec.items||[]).length;
-    return `<button class="tab ${S.sec===s.id?'on':''}" data-act="tab" data-v="${s.id}">${s.icon} ${s.title}${sec.status==='run'?' …':n?` ${n}`:''}</button>`;}).join('')}
+    return `<button class="tab ${S.sec===s.id?'on':''}" data-act="tab" data-v="${s.id}">${s.icon} ${s.title}${sec.status==='run'?' …':n&&rep.kind!=='forecast'?` ${n}`:''}</button>`;}).join('')}
     <button class="tab ${S.sec==='video'?'on':''}" data-act="tab" data-v="video">🎬 영상</button>
     <button class="tab ${S.sec==='qa'?'on':''}" data-act="tab" data-v="qa">💬 질문${(rep.qa||[]).length?' '+rep.qa.length:''}</button>
     <button class="tab ${S.sec==='src'?'on':''}" data-act="tab" data-v="src">📎 출처</button></div>`;
@@ -587,8 +668,12 @@ function reportHTML(){
   else if(S.sec==='src')body=srcHTML(rep);
   else{
     const meta=secsOf(rep).find(s=>s.id===S.sec)||secsOf(rep)[0];const sec=(rep.sections||{})[S.sec]||{};
-    if(sec.status==='run')body=`<div class="card"><span class="spin"></span><b>${meta.long}</b> 조사 중… (1~2분)</div><div class="grid">${Array.from({length:4}).map(()=>`<div class="item"><div class="ph load"></div><div class="info"><div class="nm">&nbsp;</div></div></div>`).join('')}</div>`;
+    if(sec.status==='run')body=`<div class="card"><span class="spin"></span><b>${meta.long}</b> ${S.sec==='brief'?'— 다른 항목이 끝나면 모아서 정리해요 (2~4분)':'조사 중… (1~2분)'}</div><div class="grid">${Array.from({length:4}).map(()=>`<div class="item"><div class="ph load"></div><div class="info"><div class="nm">&nbsp;</div></div></div>`).join('')}</div>`;
     else if(sec.status==='error')body=`<div class="err">⚠️ ${esc(sec.error)}</div><button class="btn big" data-act="retrysec" data-v="${esc(S.sec)}">↻ 이 항목만 다시 조사</button>`;
+    else if(rep.kind==='forecast'&&S.sec==='brief')body=briefHTML(sec);
+    else if(rep.kind==='forecast'&&S.sec==='mills')body=millsHTML(sec,meta);
+    else if(rep.kind==='forecast'&&S.sec==='color')body=colorHTML(rep,sec,meta);
+    else if(rep.kind==='forecast'&&S.sec==='fabric')body=forecastHTML(rep,S.sec,sec,meta);
     else{
       const items=sortedItems(sec);
       body=`<div class="muted" style="margin-bottom:8px">${meta.long}${S.sec==='newin'&&rep.kind!=='people'?' · '+(rep.countries||[]).map(cName).join(', '):''}</div>
@@ -599,6 +684,55 @@ function reportHTML(){
     }
   }
   return `<div class="wrap">${head}${S.sec==='qa'?'':shopHTML(rep)}${tabs}${body}</div>`;
+}
+function briefHTML(sec){
+  return `${sec.summary?`<div class="sum" style="font-size:15px"><b>📝 한눈에</b><br>${esc(sec.summary)}</div>`:''}
+  ${(sec.items||[]).map(x=>`<div class="fc"><div class="nm">${esc(x.title||x.name)}</div>
+    ${(x.points||[]).map(p=>`<div class="ln">• ${esc(p)}</div>`).join('')}</div>`).join('')}
+  <button class="btn ghost big" data-act="retrysec" data-v="brief">↻ 요점 정리 다시 만들기</button>
+  <div class="muted" style="text-align:center;margin-top:6px">브랜드·쇼핑몰 리포트를 더 조사한 뒤 다시 만들면 더 정확해져요</div>`;
+}
+function millsHTML(sec,meta){
+  const q=encodeURIComponent;
+  return `<div class="muted" style="margin-bottom:8px">${esc(meta.long)}</div>${sec.summary?`<div class="sum">${esc(sec.summary)}</div>`:''}
+  ${(sec.items||[]).map(x=>{const ig=String(x.instagram||'').replace(/^@/,'').trim();return `<div class="fc">
+    <div class="hd"><div class="sw">🏭</div><div style="flex:1;min-width:0"><div class="nm">${esc(x.name)}</div><div class="muted">${esc(x.where||'')}</div></div></div>
+    ${x.fabrics&&x.fabrics.length?`<div class="ln"><b>🧵 원단</b> ${esc(x.fabrics.join(', '))}</div>`:''}
+    ${x.colors&&x.colors.length?`<div class="ln"><b>🎨 색</b> ${esc(x.colors.join(', '))}</div>`:''}
+    ${x.note?`<div class="br">${esc(x.note)}</div>`:''}
+    <div class="chips">${x.url?`<button class="chip" data-act="url" data-v="${esc(x.url)}">🔗 자료</button>`:''}
+      ${ig?`<button class="chip" data-act="url" data-v="${esc(/^https?:/.test(ig)?ig:'https://www.instagram.com/'+ig+'/')}">📷 인스타</button>`:''}
+      <button class="chip" data-act="url" data-v="https://www.google.com/search?q=${q(x.name+' tecidos coleção 2027')}">🔎 더 찾기</button></div></div>`;}).join('')}`;
+}
+function colorHTML(rep,sec,meta){
+  const it=sec.items||[];
+  const groups=[['base','✅ 브라질 기본색','해마다 늘 나가는 색'],['trend','🔥 2027 브라질 유행색','기본색 말고 새로 뜰 색'],['worldOnly','🚫 세계 유행, 브라질은 아님','따라 만들면 위험한 색']];
+  const known=new Set(groups.map(g=>g[0]));
+  return `${sec.summary?`<div class="sum">${esc(sec.summary)}</div>`:''}`+groups.map(([g,t,d])=>{
+    const xs=it.filter(x=>(x.group||'trend')===g||(g==='trend'&&!known.has(x.group)));if(!xs.length)return '';
+    return `<h2>${t} <span class="muted">${d}</span></h2>`+forecastHTML(rep,'color',{items:xs},{long:''},true);}).join('');
+}
+function forecastHTML(rep,id,sec,meta,bare){
+  const it=sec.items||[];const q=encodeURIComponent;
+  const hex=h=>/^#?[0-9a-f]{6}$/i.test(String(h||'').trim())?('#'+String(h).trim().replace('#','')):'#ddd';
+  return `${bare?'':`<div class="muted" style="margin-bottom:8px">${esc(meta.long)}</div>`}
+  ${id==='color'&&it.length?`<div class="pal">${it.map(x=>`<div style="background:${hex(x.hex)}"></div>`).join('')}</div>`:''}
+  ${!bare&&sec.summary?`<div class="sum">${esc(sec.summary)}</div>`:''}${!bare&&sec.note?`<div class="note">📌 ${esc(sec.note)}</div>`:''}
+  ${it.map((x,i)=>{const sc=(x.brazil||{}).score;return `<div class="fc">
+    <div class="hd"><div class="sw" style="${id==='color'?'background:'+hex(x.hex):''}">${id==='color'?'':'🧵'}</div>
+      <div style="flex:1;min-width:0"><div class="rk">${i+1}위</div><div class="nm">${esc(x.name)}</div><div class="muted">${esc(x.namePt||'')}${id==='color'&&x.hex?' · '+esc(x.hex):''}</div></div>
+      ${sc!=null&&sc!==''?`<span class="bd ${scoreCls(sc)}" style="font-size:13px">🇧🇷 ${esc(sc)}</span>`:''}</div>
+    ${x.world?`<div class="ln"><b>🌍 세계</b> ${esc(x.world)}</div>`:''}
+    ${x.outlook?`<div class="br">🇧🇷 <b>브라질 전망</b> ${esc(x.outlook)}</div>`:''}
+    ${x.use&&x.use.length?`<div class="ln"><b>어울리는 옷</b> ${esc(x.use.join(', '))}</div>`:''}
+    ${x.fabric&&id==='color'?`<div class="ln"><b>원단</b> ${esc(x.fabric)}</div>`:''}
+    ${x.pairs&&x.pairs.length?`<div class="ln"><b>같이 쓸 색</b> ${esc(x.pairs.join(', '))}</div>`:''}
+    ${x.season?`<div class="ln"><b>시즌</b> ${esc(x.season)}</div>`:''}
+    ${x.price?`<div class="ln"><b>가격대</b> ${esc(x.price)}</div>`:''}
+    ${(x.brazil||{}).why?`<div class="ln"><b>이유</b> ${esc(x.brazil.why)}</div>`:''}
+    <div class="chips"><button class="chip" data-act="url" data-v="https://www.google.com/search?tbm=isch&q=${q((x.namePt||x.name)+(id==='color'?' moda feminina 2027':' tecido'))}">🖼️ ${id==='color'?'이 색 옷 사진':'원단 사진'}</button>
+      ${x.url?`<button class="chip" data-act="url" data-v="${esc(x.url)}">🔗 근거 자료</button>`:''}</div>
+  </div>`;}).join('')}`;
 }
 function cardHTML(x,i,secId){
   const sc=(x.brazil||{}).score;const cn=(x.countries||[]).length;
@@ -723,7 +857,9 @@ async function act(a,v,el){
   else if(a==='findaddr'){findAddress(S.rep);}
   else if(a==='reident'){const rep=loadRep(S.rep);if(rep&&!running[rep.key]&&confirm2('같은 이름의 다른 가게를 찾아서 처음부터 다시 조사할까요?'))research(rep.name,{kind:'brand'});}
   else if(a==='retrysec'){retrySection(v);}
-  else if(a==='special'){if(!apiKey()&&!(AB&&AB.ask)){toast('먼저 ⚙️ 설정에서 키를 넣어 주세요');return;}const p=special(v);const k=repKey(v==='shows'?'👠 패션쇼 동향':'⭐ 인플루언서·셀럽 의상');S.rep=k;S.view='report';S.sec=v==='shows'?S.shows[0]:S.pcountries[0];S.sort='base';setTimeout(render,50);}
+  else if(a==='special'){if(!apiKey()&&!(AB&&AB.ask)){toast('먼저 ⚙️ 설정에서 키를 넣어 주세요');return;}const secs=specialSecs(v);if(!secs.length){toast('먼저 골라 주세요');return;}special(v);S.rep=repKey(SPECIAL[v]);S.view='report';S.sec=secs[0].id;S.sort='base';setTimeout(render,50);}
+  else if(a==='market'){S.markets=S.markets.includes(v)?S.markets.filter(x=>x!==v):[...S.markets,v];LS.set('markets',S.markets);render();}
+  else if(a==='ncolors'){S.ncolors=+v;LS.set('ncolors',S.ncolors);render();}
   else if(a==='show'){S.shows=S.shows.includes(v)?S.shows.filter(x=>x!==v):[...S.shows,v];LS.set('shows',S.shows);render();}
   else if(a==='pcountry'){S.pcountries=S.pcountries.includes(v)?S.pcountries.filter(x=>x!==v):[...S.pcountries,v];LS.set('pcountries',S.pcountries);render();}
   else if(a==='watch'){const rep=loadRep(S.rep);if(rep)toggleWatch(rep);}
