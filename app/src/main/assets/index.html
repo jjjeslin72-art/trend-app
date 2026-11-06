@@ -83,6 +83,11 @@ h2{font-size:18px;margin:22px 0 10px}
 .toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:11px 16px;border-radius:12px;z-index:60;font-size:14px;max-width:88%;text-align:center}
 .sw{display:flex;align-items:center;justify-content:space-between;gap:10px}
 a{color:var(--acc)}
+.qa{margin:10px 0}.qa .q{background:var(--ink);color:#fff;border-radius:16px 16px 4px 16px;padding:10px 13px;margin-left:15%;font-size:14.5px;line-height:1.5}
+.qa .a{background:#fff;border:1px solid var(--line);border-radius:16px 16px 16px 4px;padding:11px 13px;margin:8px 15% 0 0;font-size:14.5px;line-height:1.6}
+.ask{position:sticky;bottom:0;background:var(--bg);padding:10px 0 12px;display:flex;gap:8px;align-items:flex-end}
+.ask textarea{flex:1;min-width:0;resize:none;padding:12px 13px;border-radius:14px;border:1.5px solid var(--line);font:inherit;max-height:120px;outline:none}
+.shop{font-size:14px;line-height:1.5}.shop .btns{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}.shop .btns .chip{font-size:13px}
 .src{font-size:12px;color:var(--sub);word-break:break-all;margin:4px 0}
 </style>
 </head>
@@ -231,8 +236,10 @@ ${who(rep)}
 /* ---------- 상호 확인 (같은 이름 가게가 여러 개면 고르기) ---------- */
 async function identify(name){
   const p=`구글 검색으로 "${name}" 라는 이름의 패션(옷) 브랜드나 옷가게를 찾아줘. 오늘 날짜: ${today()}.
-유명 브랜드면 그 브랜드 하나만. 작은 가게면 브라질 상파울루 봉헤치로(Bom Retiro, Rua dos Aimorés, Rua José Paulino 등) 가게를 먼저 찾고, 같은 이름이 여러 곳이면 최대 4개 후보.
-답은 JSON 배열만: [{"name":"정식 이름","where":"나라·도시·거리, 브랜드 종류(예: 스페인 SPA 브랜드 / 봉헤치로 도매 가게)","instagram":"@계정 또는 주소(확인된 것만)","site":"웹사이트(확인된 것만)","desc":"한 줄 설명(한국어)"}]
+브라질 상파울루 봉헤치로(Bom Retiro: Rua dos Aimorés, Rua José Paulino, Rua da Graça 등)·브라스(Brás)에 같은 이름의 옷가게가 있는지 꼭 먼저 찾아 — 있으면 맨 앞 후보로. 같은 이름의 해외 유명 브랜드도 있으면 함께 후보로 넣어 (최대 4개). 다른 곳이 전혀 없을 때만 1개.
+답은 JSON 배열만: [{"name":"정식 이름","where":"나라·도시·거리, 브랜드 종류(예: 스페인 SPA 브랜드 / 봉헤치로 도매 가게)","instagram":"@계정 또는 주소(확인된 것만)","site":"웹사이트(확인된 것만)","desc":"한 줄 설명(한국어)",
+ "address":"구체적인 주소 (거리 이름·번지·동네·도시·우편번호). 큰 브랜드면 상파울루 대표 매장 주소, 없으면 본사/대표 매장",
+ "phone":"전화 (확인된 것만)","whatsapp":"왓츠앱 번호 (확인된 것만)","hours":"영업시간 (확인된 것만)"}]
 찾지 못하면 [] 로.`;
   const r=await gemini(p);
   let arr=[];try{arr=parseJSON(r.text);}catch(e){arr=[];}
@@ -284,6 +291,99 @@ async function runSection(rep,s){
   saveRep(rep);if(S.rep===key)render();workMsg();
   fillImages(rep,s.id);
 }
+/* 주소·연락처 찾기 (이미 만든 리포트용) */
+const addrBusy={};
+async function findAddress(key){
+  const rep=loadRep(key);if(!rep||addrBusy[key])return;addrBusy[key]=1;render();
+  try{
+    const r=await gemini(`구글 검색(구글 지도·인스타 프로필·사이트·왓츠앱 카탈로그)으로 이 가게(브랜드)의 주소와 연락처를 찾아줘. 오늘 날짜: ${today()}.
+${who(rep)}
+작은 가게면 그 가게 주소를, 큰 브랜드면 상파울루(없으면 그 나라 대표) 매장 주소 1~2곳을. 지어내지 말고 확인된 것만.
+답은 JSON 하나만: {"address":"거리 이름·번지·동네·도시·우편번호 (여러 곳이면 ' / '로 구분)","phone":"","whatsapp":"","hours":"","instagram":"","site":""}`);
+    let d={};try{d=parseJSON(r.text);}catch(e){}
+    const cur=loadRep(key)||rep;cur.info=cur.info||{name:cur.name};
+    for(const k of ['address','phone','whatsapp','hours','instagram','site'])if(d[k]&&!cur.info[k])cur.info[k]=d[k];
+    if(d.address)cur.info.address=d.address;
+    cur.info.addrTried=1;saveRep(cur);
+    if(!d.address)toast('주소를 찾지 못했어요');
+  }catch(e){toast('⚠️ '+errMsg(e),4000);}
+  finally{delete addrBusy[key];render();}
+}
+function shopHTML(rep){
+  if(rep.kind&&rep.kind!=='brand')return '';
+  const i=rep.info||{};const q=encodeURIComponent;
+  const ig=(i.instagram||'').trim();const igUrl=!ig?'':/^https?:/.test(ig)?ig:'https://www.instagram.com/'+ig.replace(/^@/,'').replace(/\/$/,'')+'/';
+  const wa=String(i.whatsapp||'').replace(/\D/g,'');
+  const site=i.site?(/^https?:/.test(i.site)?i.site:'https://'+i.site):'';
+  const addrs=String(i.address||'').split(' / ').filter(Boolean);
+  return `<div class="card shop">
+    ${addrs.length?addrs.map(a=>`<div>📍 <b>${esc(a)}</b></div>`).join(''):`<div class="muted">📍 주소가 아직 없어요</div>`}
+    ${i.hours?`<div>🕒 ${esc(i.hours)}</div>`:''}${i.phone?`<div>📞 ${esc(i.phone)}</div>`:''}
+    <div class="btns">
+      ${addrs.length?addrs.map((a,k)=>`<button class="chip" data-act="url" data-v="https://www.google.com/maps/search/?api=1&query=${q(a)}">🗺️ 지도${addrs.length>1?' '+(k+1):''}</button>`).join(''):`<button class="chip" data-act="findaddr">${addrBusy[rep.key]?'<span class="spin"></span>찾는 중…':'📍 주소·연락처 찾기'}</button>`}
+      ${wa?`<button class="chip" data-act="url" data-v="https://wa.me/${wa}">💬 왓츠앱</button>`:''}
+      ${i.phone?`<button class="chip" data-act="url" data-v="tel:${esc(String(i.phone).replace(/[^\d+]/g,''))}">📞 전화</button>`:''}
+      ${igUrl?`<button class="chip" data-act="url" data-v="${esc(igUrl)}">📷 인스타</button>`:''}
+      ${site?`<button class="chip" data-act="url" data-v="${esc(site)}">🌐 사이트</button>`:''}
+      ${addrs.length&&!addrBusy[rep.key]?`<button class="chip" data-act="findaddr">↻ 주소 다시 찾기</button>`:''}
+      <button class="chip" data-act="reident">🔄 다른 가게예요</button>
+    </div></div>`;
+}
+
+/* 💬 질문하기 */
+const qaBusy={};
+function qaContext(rep){
+  const lines=[];
+  for(const s of secsOf(rep)){const sec=(rep.sections||{})[s.id]||{};if(!sec.items||!sec.items.length)continue;
+    lines.push(`[${s.title}] ${sec.summary||''}`);
+    sec.items.forEach((x,i)=>lines.push(`- ${i+1}. ${x.person?x.person+': ':''}${x.name} (${x.type||''}) 원단:${x.fabric||'?'} 색:${(x.colors||[]).join('/')} 가격:${x.price||'?'} 브라질점수:${(x.brazil||{}).score??'?'} ${x.url||''}`));}
+  return lines.join('\n').slice(0,14000);
+}
+async function askQuestion(q){
+  q=String(q||'').trim();if(!q)return;
+  const rep=loadRep(S.rep);if(!rep)return;const key=rep.key;
+  if(qaBusy[key])return;qaBusy[key]=1;
+  rep.qa=rep.qa||[];rep.qa.push({q,a:'',at:Date.now()});saveRep(rep);render();scrollBottom();
+  const prev=rep.qa.slice(-5,-1).map(x=>`질문: ${x.q}\n답: ${x.a}`).join('\n\n');
+  let ans='';
+  try{
+    const r=await gemini(`너는 브라질 상파울루 봉헤치로에서 14년째 여성복을 생산·도매하는 한국인 사장님의 패션 트렌드 비서야. 오늘 날짜: ${today()}.
+아래는 사장님이 이미 조사해 둔 리포트야. 질문에 답할 때 리포트 내용을 먼저 쓰고, 부족하면 구글 검색으로 찾아. 모르는 건 모른다고 해.
+쉬운 한국어로 짧고 실용적으로 (5~10줄). 목록이 필요하면 '- '로. 원단·가격·생산 아이디어는 봉헤치로 기준으로.
+
+[리포트] ${rep.name} ${(rep.info||{}).where||''} ${(rep.info||{}).address?'/ 주소: '+rep.info.address:''}
+${qaContext(rep)}
+
+${prev?'[앞의 대화]\n'+prev+'\n\n':''}[질문] ${q}`);
+    ans=r.text.trim();
+    const src=(r.sources||[]).slice(0,4);
+    if(src.length)ans+='\n\n'+src.map(x=>`🔗 ${x.title||'출처'}|${x.uri}`).join('\n');
+  }catch(e){ans='⚠️ '+errMsg(e);}
+  const cur=loadRep(key)||rep;cur.qa=cur.qa||[];
+  const last=cur.qa[cur.qa.length-1];if(last&&last.q===q&&!last.a)last.a=ans;else cur.qa.push({q,a:ans,at:Date.now()});
+  saveRep(cur);delete qaBusy[key];
+  if(S.rep===key){render();scrollBottom();}
+  if(document.hidden)notifyDone('💬 답이 왔어요',q.slice(0,60),key);
+}
+function scrollBottom(){setTimeout(()=>window.scrollTo(0,document.body.scrollHeight),30);}
+function fmtAnswer(a){
+  return String(a).split('\n').map(line=>{
+    const m=line.match(/^🔗 (.*)\|(https?:\/\/\S+)$/);
+    if(m)return `<button class="chip" style="margin:3px 0" data-act="url" data-v="${esc(m[2])}">🔗 ${esc(m[1])}</button>`;
+    return esc(line).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>');
+  }).join('<br>');
+}
+function qaHTML(rep){
+  const qa=rep.qa||[];
+  const ex=rep.kind==='people'?['이 중에 브라질에서 바로 따라 만들기 좋은 의상은?','제일 많이 나온 색은?']
+    :rep.kind==='shows'?['쇼들에서 공통으로 나온 트렌드는?','봉헤치로에서 바로 만들 만한 건?']
+    :['이 중에 내년 여름에 만들기 좋은 3개는?','원단 비용이 제일 적게 드는 모델은?','이 가게 주력 가격대는?'];
+  return `${qa.length?'':`<div class="muted" style="margin-bottom:8px">이 리포트에 대해 무엇이든 물어보세요. 필요하면 AI가 인터넷도 찾아봐요</div>
+    <div class="chips">${ex.map(e=>`<button class="chip" data-act="askex" data-v="${esc(e)}">${esc(e)}</button>`).join('')}</div>`}
+  ${qa.map(x=>`<div class="qa"><div class="q">${esc(x.q)}</div><div class="a">${x.a?fmtAnswer(x.a):'<span class="spin"></span>찾아보는 중…'}</div></div>`).join('')}
+  <div class="ask"><textarea id="askIn" rows="1" placeholder="질문을 써 주세요">${esc(S.askDraft||'')}</textarea><button class="btn acc" data-act="ask" ${qaBusy[rep.key]?'disabled':''}>보내기</button></div>`;
+}
+
 async function retrySection(secId){
   const rep=loadRep(S.rep);if(!rep||running[rep.key])return;const s=secsOf(rep).find(x=>x.id===secId);if(!s)return;
   running[rep.key]=true;workBegin(rep.name);
@@ -479,9 +579,11 @@ function reportHTML(){
   const tabs=`<div class="tabs">${secsOf(rep).map(s=>{const sec=(rep.sections||{})[s.id]||{};const n=(sec.items||[]).length;
     return `<button class="tab ${S.sec===s.id?'on':''}" data-act="tab" data-v="${s.id}">${s.icon} ${s.title}${sec.status==='run'?' …':n?` ${n}`:''}</button>`;}).join('')}
     <button class="tab ${S.sec==='video'?'on':''}" data-act="tab" data-v="video">🎬 영상</button>
+    <button class="tab ${S.sec==='qa'?'on':''}" data-act="tab" data-v="qa">💬 질문${(rep.qa||[]).length?' '+rep.qa.length:''}</button>
     <button class="tab ${S.sec==='src'?'on':''}" data-act="tab" data-v="src">📎 출처</button></div>`;
   let body='';
-  if(S.sec==='video')body=videoHTML(rep);
+  if(S.sec==='qa')body=qaHTML(rep);
+  else if(S.sec==='video')body=videoHTML(rep);
   else if(S.sec==='src')body=srcHTML(rep);
   else{
     const meta=secsOf(rep).find(s=>s.id===S.sec)||secsOf(rep)[0];const sec=(rep.sections||{})[S.sec]||{};
@@ -496,7 +598,7 @@ function reportHTML(){
       <div class="grid">${items.map(({x,i})=>cardHTML(x,i,S.sec)).join('')}</div>`;
     }
   }
-  return `<div class="wrap">${head}${tabs}${body}</div>`;
+  return `<div class="wrap">${head}${S.sec==='qa'?'':shopHTML(rep)}${tabs}${body}</div>`;
 }
 function cardHTML(x,i,secId){
   const sc=(x.brazil||{}).score;const cn=(x.countries||[]).length;
@@ -559,6 +661,7 @@ function detailHTML(){
     <button class="btn ghost" data-act="url" data-v="https://www.google.com/search?tbm=isch&q=${q}">🖼️ 사진 더 찾기</button>
     <button class="btn ghost" data-act="url" data-v="${esc(ytId(x.video)?x.video:'https://www.youtube.com/results?search_query='+q)}">🎬 영상 보기</button>
     <button class="btn ghost" data-act="sharetxt">📤 내용 공유</button>
+    <button class="btn ghost" data-act="askitem">💬 이 옷 질문하기</button>
   </div>
   ${x.url?`<div class="src" style="margin-top:12px">출처: ${esc(x.url)}</div>`:''}
   </div></div>`;
@@ -585,6 +688,7 @@ function newsHTML(){
 function bind(){
   const ki=$('#keyIn');if(ki)ki.oninput=()=>saveKey(ki.value);
   const inp=$('#brandIn');if(inp)inp.onkeydown=e=>{if(e.key==='Enter')act('add');};
+  const ta=$('#askIn');if(ta){const fit=()=>{ta.style.height='auto';ta.style.height=Math.min(120,ta.scrollHeight)+'px';};fit();ta.oninput=()=>{S.askDraft=ta.value;fit();};}
   const ss=$('#sortSel');if(ss){ss.value=S.sort;ss.onchange=()=>{S.sort=ss.value;render();};}
   const g=$('#gal');if(g)g.onscroll=()=>{const c=$('#galcnt');if(c)c.textContent=`${Math.round(g.scrollLeft/g.clientWidth)+1} / ${g.children.length}`;};
 }
@@ -613,6 +717,11 @@ async function act(a,v,el){
   else if(a==='detail'){S.detail={sec:S.sec,i:+el.dataset.i};render();}
   else if(a==='close'){S.detail=null;render();}
   else if(a==='redo'){const rep=loadRep(S.rep);if(rep&&!running[rep.key]){if(!confirm2('다시 조사할까요? (지금 결과는 새 결과로 바뀌어요)'))return;research(rep.name,{reuseInfo:true,kind:rep.kind||'brand',secs:rep.secs});}}
+  else if(a==='ask'){const t=$('#askIn');const q=t?t.value:'';S.askDraft='';askQuestion(q);}
+  else if(a==='askex'){askQuestion(v);}
+  else if(a==='askitem'){const x=curItem();if(!x)return;S.detail=null;S.sec='qa';S.askDraft=`"${x.name}" 이 옷에 대해: `;render();scrollBottom();setTimeout(()=>{const t=$('#askIn');if(t){t.focus();t.setSelectionRange(t.value.length,t.value.length);}},80);}
+  else if(a==='findaddr'){findAddress(S.rep);}
+  else if(a==='reident'){const rep=loadRep(S.rep);if(rep&&!running[rep.key]&&confirm2('같은 이름의 다른 가게를 찾아서 처음부터 다시 조사할까요?'))research(rep.name,{kind:'brand'});}
   else if(a==='retrysec'){retrySection(v);}
   else if(a==='special'){if(!apiKey()&&!(AB&&AB.ask)){toast('먼저 ⚙️ 설정에서 키를 넣어 주세요');return;}const p=special(v);const k=repKey(v==='shows'?'👠 패션쇼 동향':'⭐ 인플루언서·셀럽 의상');S.rep=k;S.view='report';S.sec=v==='shows'?S.shows[0]:S.pcountries[0];S.sort='base';setTimeout(render,50);}
   else if(a==='show'){S.shows=S.shows.includes(v)?S.shows.filter(x=>x!==v):[...S.shows,v];LS.set('shows',S.shows);render();}
