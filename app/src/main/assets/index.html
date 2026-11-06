@@ -18,9 +18,9 @@ h2{font-size:18px;margin:22px 0 10px}
 .hero:after{content:"";position:absolute;right:-40px;top:-40px;width:170px;height:170px;border-radius:50%;border:2px solid rgba(255,255,255,.12);box-shadow:0 0 0 26px rgba(255,255,255,.05)}
 .hero b{color:var(--gold)}
 .row{display:flex;gap:8px;align-items:center}
-.inp{flex:1;padding:13px 14px;border-radius:14px;border:1.5px solid var(--line);background:#fff;outline:none}
+.inp{flex:1;min-width:0;width:100%;padding:13px 14px;border-radius:14px;border:1.5px solid var(--line);background:#fff;outline:none}
 .inp:focus{border-color:var(--ink)}
-.btn{padding:13px 16px;border-radius:14px;background:var(--ink);color:#fff;font-weight:700}
+.btn{flex:none;white-space:nowrap;padding:13px 16px;border-radius:14px;background:var(--ink);color:#fff;font-weight:700}
 .btn.acc{background:var(--acc)}
 .btn.ghost{background:#fff;color:var(--ink);border:1.5px solid var(--line)}
 .btn.big{width:100%;padding:16px;font-size:17px;margin-top:14px}
@@ -502,6 +502,7 @@ function newsHTML(){
 
 /* ---------- 버튼 ---------- */
 function bind(){
+  const ki=$('#keyIn');if(ki)ki.oninput=()=>saveKey(ki.value);
   const inp=$('#brandIn');if(inp)inp.onkeydown=e=>{if(e.key==='Enter')act('add');};
   const ss=$('#sortSel');if(ss){ss.value=S.sort;ss.onchange=()=>{S.sort=ss.value;render();};}
   const g=$('#gal');if(g)g.onscroll=()=>{const c=$('#galcnt');if(c)c.textContent=`${Math.round(g.scrollLeft/g.clientWidth)+1} / ${g.children.length}`;};
@@ -540,11 +541,12 @@ async function act(a,v,el){
   else if(a==='sharetxt'){const x=curItem();const rep=loadRep(S.rep);if(!x)return;
     const t=`[${rep.name}] ${x.name}\n종류: ${x.type||''}\n${x.desc||''}\n원단: ${x.fabric||''}${x.fabricPt?' ('+x.fabricPt+')':''}\n색상: ${(x.colors||[]).join(', ')}\n가격: ${x.price||''}\n브라질 점수: ${(x.brazil||{}).score??''} — ${(x.brazil||{}).why||''}\n${x.url||''}`;
     if(AB)AB.shareText(t);else navigator.clipboard&&navigator.clipboard.writeText(t);}
-  else if(a==='savekey'){const k=($('#keyIn').value||'').trim();LS.set('key',k);if(AB)AB.setKey(k);toast('저장했어요');}
-  else if(a==='testkey'){toast('시험 중…');try{await gemini('"연결 성공" 이라고만 답해.',{search:false});toast('✅ 연결 성공!');}catch(e){toast('⚠️ '+errMsg(e),4000);}}
+  else if(a==='savekey'){saveKey($('#keyIn').value);toast('저장했어요');}
+  else if(a==='testkey'){const ki=$('#keyIn');if(ki)saveKey(ki.value);toast('시험 중…');try{await gemini('"연결 성공" 이라고만 답해.',{search:false});toast('✅ 연결 성공!');}catch(e){toast('⚠️ '+errMsg(e),4000);}}
   else if(a==='clearall'){if(!confirm2('저장한 리포트를 모두 지울까요?'))return;S.index.forEach(r=>{try{localStorage.removeItem('r:'+r.key);}catch(e){}});S.index=[];saveIndex();render();}
   else if(a==='clearnews'){AB&&AB.setNews('[]');render();}
 }
+function saveKey(k){k=String(k||'').trim();LS.set('key',k);if(AB)AB.setKey(k);}
 function confirm2(t){try{return window.confirm(t);}catch(e){return true;}}
 async function waitPhase(key){for(let k=0;k<400;k++){const r=loadRep(key);if(r&&r.status!=='identify')return;await sleep(500);}}
 
