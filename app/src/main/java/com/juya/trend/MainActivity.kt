@@ -102,13 +102,21 @@ class MainActivity : ComponentActivity() {
         })
 
         TrendWorker.channel(this)
+        WorkService.channels(this)
+        val open = intent?.getStringExtra("open")
         web.loadUrl("https://appassets.androidplatform.net/assets/index.html" +
-            if (intent?.getBooleanExtra("news", false) == true) "#news" else "")
+            when {
+                intent?.getBooleanExtra("news", false) == true -> "#news"
+                !open.isNullOrBlank() -> "#open=" + Uri.encode(open)
+                else -> ""
+            })
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         if (intent.getBooleanExtra("news", false)) web.evaluateJavascript("window.__openNews && window.__openNews()", null)
+        val open = intent.getStringExtra("open")
+        if (!open.isNullOrBlank()) web.evaluateJavascript("window.__openRep && window.__openRep(${JSONObject.quote(open)})", null)
     }
 
     /** 사진을 앱이 대신 받아서 화면에 넘김 (사이트가 막아 둔 사진도 보임) */
@@ -312,6 +320,36 @@ class MainActivity : ComponentActivity() {
 
         @JavascriptInterface
         fun setNews(json: String) { getSharedPreferences("app", MODE_PRIVATE).edit().putString("news", json).apply() }
+
+        /** 조사 시작: 알림을 띄우고 앱에서 나가도 계속 돌게 함 */
+        @JavascriptInterface
+        fun workStart(text: String) {
+            ui.post {
+                if (Build.VERSION.SDK_INT >= 33 &&
+                    ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+                ) notifPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                try {
+                    val i = Intent(this@MainActivity, WorkService::class.java).putExtra("text", text)
+                    if (Build.VERSION.SDK_INT >= 26) startForegroundService(i) else startService(i)
+                } catch (_: Exception) {}
+            }
+        }
+
+        @JavascriptInterface
+        fun workUpdate(text: String) {
+            try { androidx.core.app.NotificationManagerCompat.from(this@MainActivity).notify(WorkService.ID, WorkService.progress(this@MainActivity, text)) } catch (_: SecurityException) {}
+        }
+
+        @JavascriptInterface
+        fun workStop() {
+            try { stopService(Intent(this@MainActivity, WorkService::class.java)) } catch (_: Exception) {}
+        }
+
+        /** 끝났다는 알림 (소리·진동) — 누르면 그 리포트가 열림 */
+        @JavascriptInterface
+        fun notifyDone(title: String, text: String, key: String) {
+            try { androidx.core.app.NotificationManagerCompat.from(this@MainActivity).notify(5000 + (key.hashCode() and 0xfff), WorkService.done(this@MainActivity, title, text, key)) } catch (_: SecurityException) {}
+        }
 
         @JavascriptInterface
         fun checkNow() { TrendWorker.now(this@MainActivity); toast("새 상품을 확인하고 있어요. 끝나면 알림이 와요") }

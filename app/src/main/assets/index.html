@@ -219,15 +219,28 @@ function askPick(name,cands){
       <button class="pick" data-i="-1"><b>여기 없어요 — 이름 그대로 조사하기</b></button></div>`;
     m.onclick=e=>{const b=e.target.closest('.pick');if(!b)return;const i=+b.dataset.i;m.remove();res(i<0?null:cands[i]);};
     document.body.appendChild(m);
+    notifyDone(`❓ "${name}" 가게를 골라 주세요`,'같은 이름이 여러 곳이에요. 눌러서 조사할 곳을 골라 주세요',repKey(name));
   });
 }
 
 /* ---------- 조사 실행 ---------- */
 const running={};   // key -> true
+/* 앱에서 나가도 조사가 계속되게 (알림줄에 '조사 중' 표시) */
+let workN=0;
+function workMsg(){
+  if(!AB||!AB.workUpdate)return;
+  const parts=Object.keys(running).map(k=>{const r=loadRep(k)||{};const done=Object.values(r.sections||{}).filter(x=>x.status!=='run').length;
+    return `${r.name||k} ${r.status==='identify'?'확인 중':done+'/3'}`;});
+  if(parts.length)AB.workUpdate(`🔍 ${parts.join(' · ')} — 끝나면 알려 드릴게요`);
+}
+function workBegin(name){workN++;if(AB&&AB.workStart){if(workN===1)AB.workStart(`🔍 ${name} 조사 중 — 끝나면 알려 드릴게요`);else workMsg();}}
+function workEnd(){workN=Math.max(0,workN-1);if(!AB||!AB.workStop)return;if(workN===0)AB.workStop();else workMsg();}
+function notifyDone(title,text,key){if(AB&&AB.notifyDone)AB.notifyDone(title,text,key);}
 async function research(name,{reuseInfo}={}){
   const key=repKey(name);
   if(running[key])return;
   running[key]=true;
+  workBegin(name);
   let rep=loadRep(key)||{key,name,sections:{}};
   rep.name=name;rep.at=Date.now();rep.countries=S.countries.slice();rep.sections={};
   rep.status='identify';
@@ -256,14 +269,18 @@ async function research(name,{reuseInfo}={}){
       }catch(e){
         rep.sections[s.id]={status:'error',error:errMsg(e),items:[]};
       }
-      saveRep(rep);if(S.rep===key)render();
+      saveRep(rep);if(S.rep===key)render();workMsg();
       fillImages(rep,s.id);
     }));
     rep.status='done';saveRep(rep);render();
+    const n=SECTIONS.reduce((a,s)=>a+((rep.sections[s.id]||{}).items||[]).length,0);
+    const bad=SECTIONS.filter(s=>(rep.sections[s.id]||{}).status==='error').length;
     toast(`✅ ${name} 조사 끝!`);
+    notifyDone(`✅ ${name} 조사 끝!`,`모델 ${n}개를 찾았어요${bad?` (${bad}개 항목 오류)`:''} · 눌러서 보기`,key);
   }catch(e){
     rep.status='error';rep.error=errMsg(e);saveRep(rep);render();
-  }finally{delete running[key];}
+    notifyDone(`⚠️ ${name} 조사 실패`,rep.error,key);
+  }finally{delete running[key];workEnd();}
 }
 function errMsg(e){const m=(e&&e.message)||String(e);
   if(m==='NOKEY')return '구글 AI 키가 없어요. ⚙️ 설정에서 키를 넣어 주세요';
@@ -348,6 +365,7 @@ function toggleWatch(rep){
 }
 function getNews(){try{return AB?JSON.parse(AB.getNews()):[];}catch(e){return [];}}
 window.__openNews=()=>{S.view='news';render();};
+window.__openRep=key=>{if(!loadRep(key))return;if(document.querySelector('.modal'))return;S.rep=key;S.view='report';S.detail=null;S.sec='steady';S.sort='base';render();};
 
 /* ---------- 화면 ---------- */
 function render(){
@@ -375,7 +393,7 @@ function homeHTML(){
   <h2>② 신상 볼 나라 <span class="muted">(여러 개 고르기)</span></h2>
   <div class="chips">${COUNTRIES.map(([c,n])=>`<button class="chip ${S.countries.includes(c)?'on':''}" data-act="country" data-v="${c}">${n}</button>`).join('')}</div>
   <button class="btn acc big" data-act="go" ${S.picked.length&&S.countries.length?'':'disabled'}>🔍 ${S.picked.length}곳 조사 시작</button>
-  <div class="muted" style="text-align:center;margin-top:8px">한 곳에 1~2분 걸려요. 조사하는 동안 다른 화면을 봐도 돼요</div>
+  <div class="muted" style="text-align:center;margin-top:8px">한 곳에 1~2분 걸려요. 앱에서 나가 다른 일을 해도 돼요 — 끝나면 알림이 와요 🔔</div>
   <h2>저장한 리포트</h2>
   <div class="list">${S.index.length?S.index.map(r=>{const rp=loadRep(r.key)||{};const st=running[r.key]?'<span class="spin"></span>조사 중…':rp.status==='error'?'⚠️ 오류':new Date(r.at).toLocaleDateString('ko-KR');
     return `<div class="card" data-act="open" data-v="${esc(r.key)}"><div class="thumb" style="${r.thumb||firstImg(rp)?`background-image:url('${img(r.thumb||firstImg(rp))}')`:''}"></div>
@@ -560,6 +578,7 @@ window.__appBack=()=>{
 S.index.forEach(r=>{const rp=loadRep(r.key);if(rp&&(rp.status==='run'||rp.status==='identify')){rp.status=Object.values(rp.sections||{}).some(s=>s.status==='done')?'done':'error';rp.error=rp.error||'조사가 중간에 멈췄어요. ↻ 다시 조사를 눌러 주세요';
   for(const k in rp.sections||{})if(rp.sections[k].status==='run')rp.sections[k]={status:'error',error:'중간에 멈췄어요. ↻ 다시 조사',items:[]};LS.set('r:'+r.key,rp);}});
 if(location.hash==='#news')S.view='news';
+else if(location.hash.startsWith('#open=')){const k=decodeURIComponent(location.hash.slice(6));if(loadRep(k)){S.rep=k;S.view='report';}}
 render();
 </script>
 </body>
