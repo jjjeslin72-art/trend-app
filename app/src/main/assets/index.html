@@ -1094,12 +1094,12 @@ async function act(a,v,el){
   else if(a==='tab'){S.sec=v;S.sort='base';render();window.scrollTo(0,0);}
   else if(a==='detail'){S.detail={sec:S.sec,i:+el.dataset.i};render();}
   else if(a==='close'){S.detail=null;render();}
-  else if(a==='redo'){const rep=loadRep(S.rep);if(rep&&!running[rep.key]){if(!confirm2('다시 조사할까요? (지금 결과는 새 결과로 바뀌어요)'))return;research(rep.name,{reuseInfo:true,kind:rep.kind||'brand',secs:rep.secs});}}
+  else if(a==='redo'){const rep=loadRep(S.rep);if(rep&&!running[rep.key]){if(!await confirm2('다시 조사할까요? (지금 결과는 새 결과로 바뀌어요)'))return;research(rep.name,{reuseInfo:true,kind:rep.kind||'brand',secs:rep.secs});}}
   else if(a==='ask'){const t=$('#askIn');const q=t?t.value:'';S.askDraft='';askQuestion(q);}
   else if(a==='askex'){askQuestion(v);}
   else if(a==='askitem'){const x=curItem();if(!x)return;S.detail=null;S.sec='qa';S.askDraft=`"${x.name}" 이 옷에 대해: `;render();scrollBottom();setTimeout(()=>{const t=$('#askIn');if(t){t.focus();t.setSelectionRange(t.value.length,t.value.length);}},80);}
   else if(a==='findaddr'){findAddress(S.rep);}
-  else if(a==='reident'){const rep=loadRep(S.rep);if(rep&&!running[rep.key]&&confirm2('같은 이름의 다른 가게를 찾아서 처음부터 다시 조사할까요?'))research(rep.name,{kind:'brand'});}
+  else if(a==='reident'){const rep=loadRep(S.rep);if(rep&&!running[rep.key]&&await confirm2('같은 이름의 다른 가게를 찾아서 처음부터 다시 조사할까요?'))research(rep.name,{kind:'brand'});}
   else if(a==='retrysec'){retrySection(v);}
   else if(a==='special'){if(!apiKey()&&!(AB&&AB.ask)){toast('먼저 ⚙️ 설정에서 키를 넣어 주세요');return;}const secs=specialSecs(v);
     const old=loadRep(repKey(SPECIAL[v]));
@@ -1133,18 +1133,26 @@ async function act(a,v,el){
   else if(a==='onlyok'){S.onlyOk=!S.onlyOk;LS.set('onlyOk',S.onlyOk);render();}
   else if(a==='delrep'){
     if(running[v]){toast('조사 중에는 지울 수 없어요');return;}
-    const r=loadRep(v);if(!confirm2(`"${r?r.name:v}" 리포트를 지울까요?`))return;
+    const r=loadRep(v);if(!await confirm2(`"${r?r.name:v}" 리포트를 지울까요?`))return;
     try{localStorage.removeItem('r:'+v);}catch(e){}
     S.index=S.index.filter(x=>x.key!==v);saveIndex();
     if(r&&isWatched(v))setWatch(getWatch().filter(x=>repKey(x.name)!==v));
     if(S.rep===v){S.rep=null;S.view='home';S.detail=null;}
     toast('지웠어요');render();}
-  else if(a==='clearqa'){const r=loadRep(S.rep);if(!r||!confirm2('질문 기록을 모두 지울까요?'))return;r.qa=[];saveRep(r);render();}
-  else if(a==='clearall'){if(!confirm2('저장한 리포트를 모두 지울까요?'))return;S.index.forEach(r=>{try{localStorage.removeItem('r:'+r.key);}catch(e){}});S.index=[];saveIndex();render();}
+  else if(a==='clearqa'){const r=loadRep(S.rep);if(!r||!await confirm2('질문 기록을 모두 지울까요?'))return;r.qa=[];saveRep(r);render();}
+  else if(a==='clearall'){if(!await confirm2('저장한 리포트를 모두 지울까요?'))return;S.index.forEach(r=>{try{localStorage.removeItem('r:'+r.key);}catch(e){}});S.index=[];saveIndex();render();}
   else if(a==='clearnews'){AB&&AB.setNews('[]');render();}
 }
 function saveKey(k){k=String(k||'').trim();LS.set('key',k);if(AB)AB.setKey(k);}
-function confirm2(t){try{return window.confirm(t);}catch(e){return true;}}
+function confirm2(t){
+  return new Promise(res=>{
+    const m=document.createElement('div');m.className='modal';
+    m.innerHTML=`<div class="box"><div style="font-size:17px;font-weight:700;line-height:1.5;margin-bottom:16px">${esc(t)}</div>
+      <div class="row"><button class="btn ghost" style="flex:1" data-c="0">취소</button><button class="btn acc" style="flex:1" data-c="1">확인</button></div></div>`;
+    m.onclick=e=>{const b=e.target.closest('[data-c]');if(!b&&e.target!==m)return;e.stopPropagation();m.remove();res(!!(b&&b.dataset.c==='1'));};
+    document.body.appendChild(m);
+  });
+}
 async function waitPhase(key){for(let k=0;k<400;k++){const r=loadRep(key);if(r&&r.status!=='identify')return;await sleep(500);}}
 
 window.__appBack=()=>{
