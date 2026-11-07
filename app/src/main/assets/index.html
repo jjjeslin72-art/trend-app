@@ -58,7 +58,7 @@ h2{font-size:18px;margin:22px 0 10px}
 .num{position:absolute;right:7px;top:7px;font-size:11px;font-weight:800;background:#fff;border-radius:8px;padding:3px 7px}
 .sum{background:#fff;border-radius:16px;padding:13px 14px;border:1px solid var(--line);line-height:1.55;font-size:14px;margin-bottom:10px}
 .note{background:#FFF4E5;border:1px solid #F5D8A8;border-radius:14px;padding:10px 12px;font-size:13px;margin-bottom:10px}
-.err{background:#FDECEA;border:1px solid #F5C2BC;border-radius:14px;padding:12px;font-size:14px;margin:10px 0}
+.err{white-space:pre-wrap;word-break:break-word;background:#FDECEA;border:1px solid #F5C2BC;border-radius:14px;padding:12px;font-size:14px;margin:10px 0}
 .spin{display:inline-block;width:16px;height:16px;border:2.5px solid #ccc;border-top-color:var(--acc);border-radius:50%;animation:sp 1s linear infinite;vertical-align:-3px;margin-right:6px}
 @keyframes sp{to{transform:rotate(360deg)}}
 .sheet{position:fixed;inset:0;background:var(--bg);z-index:20;overflow-y:auto}
@@ -177,7 +177,7 @@ async function gemini(prompt,{search=true,signal}={}){
     const d=await r.json().catch(()=>({}));
     if(!r.ok){const msg=(d.error&&d.error.message)||('http '+r.status);
       if(r.status===400&&/API key/i.test(msg))throw new Error('BADKEY');
-      if(/billing|FAILED_PRECONDITION/i.test(msg))last='구글 AI 결제(카드) 연결이 필요해요';else last=msg;continue;}
+      last=(r.status===429?'구글 AI 사용 한도에 걸렸어요 (한도·결제 확인 필요)':/billing|FAILED_PRECONDITION/i.test(msg)?'구글 AI 결제 문제예요 (카드·선불 잔액 확인)':'구글 AI 오류 '+r.status)+'\n원문: '+msg.slice(0,160);continue;}
     const c=(d.candidates||[])[0]||{};
     const text=((c.content&&c.content.parts)||[]).map(p=>p.text||'').join('');
     const sources=(((c.groundingMetadata||{}).groundingChunks)||[]).map(x=>x.web).filter(Boolean);

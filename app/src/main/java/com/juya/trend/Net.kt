@@ -109,9 +109,10 @@ object Net {
                     val msg = try { JSONObject(txt).optJSONObject("error")?.optString("message") ?: "" } catch (_: Exception) { "" }
                     if (code == 400 && msg.contains("API key", true)) throw IllegalStateException("BADKEY")
                     if (code == 404 || (code == 400 && msg.contains("thinking", true))) badTries.add(idx)   // 이 모델·설정은 안 됨 → 다음부터 건너뜀
-                    last = if (msg.contains("billing", true) || msg.contains("FAILED_PRECONDITION")) "구글 AI 결제(카드) 연결이 필요해요"
-                           else if (code == 429) "구글 AI 사용량이 잠깐 많아요. 조금 뒤에 다시 해 주세요"
-                           else msg.ifBlank { "http $code" }
+                    val raw = msg.take(160)
+                    last = if (code == 429) "구글 AI 사용 한도에 걸렸어요 (한도·결제 확인 필요)\n원문: $raw"
+                           else if (msg.contains("billing", true) || msg.contains("FAILED_PRECONDITION")) "구글 AI 결제 문제예요 (카드·선불 잔액 확인)\n원문: $raw"
+                           else "구글 AI 오류 $code\n원문: $raw"
                     continue
                 }
                 val d = JSONObject(txt)
