@@ -13,6 +13,8 @@ import java.security.MessageDigest
 object Net {
     private const val UA_MOBILE =
         "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36"
+    private const val UA_DESKTOP =
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
     // 인스타·페이스북은 링크 미리보기용 이름으로 물어야 사진 정보(og:image)를 줌
     private const val UA_PREVIEW = "facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)"
 
@@ -27,7 +29,8 @@ object Net {
             c.readTimeout = 12000
             val host = URL(u).host.lowercase()
             val preview = host.contains("instagram.com") || host.contains("facebook.com") || host.contains("threads.net")
-            c.setRequestProperty("User-Agent", if (preview) UA_PREVIEW else UA_MOBILE)
+            val desktop = host.endsWith("bing.com")
+            c.setRequestProperty("User-Agent", if (preview) UA_PREVIEW else if (desktop) UA_DESKTOP else UA_MOBILE)
             c.setRequestProperty("Accept", accept)
             c.setRequestProperty("Accept-Language", "ko-KR,ko;q=0.9,pt-BR;q=0.8,en;q=0.7,es;q=0.6")
             val code = c.responseCode

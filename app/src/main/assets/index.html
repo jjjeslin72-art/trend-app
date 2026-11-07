@@ -590,8 +590,25 @@ async function fetchInfo(url){
   try{const r=await fetch('/fetch?u='+encodeURIComponent(url));const d=await r.json();
     if(!d.html||d.status>=400)return null;const info=pageInfo(d.html,d.url||url);if(info)info.url=d.url||url;return info;}catch(e){return null;}
 }
+/* 이미지 검색 (빙): 제목이 상품 이름과 맞는 사진만 */
+async function imageSearch(q,name,brand){
+  if(!AB)return [];
+  try{
+    const r=await fetch('/fetch?u='+encodeURIComponent('https://www.bing.com/images/search?q='+encodeURIComponent(q)+'&form=HDRSC2&first=1'));
+    const d=await r.json();if(!d.html)return [];
+    const out=[];const re=/\bm="(\{[^"]*?\})"/g;let m;
+    while((m=re.exec(d.html))&&out.length<40){
+      let o;try{o=JSON.parse(m[1].replace(/&quot;/g,'"').replace(/&amp;/g,'&'));}catch(e){continue;}
+      if(!o.murl)continue;
+      const ratio=matchRatio(name,(o.t||'')+' '+decodeURIComponent(o.purl||'').replace(/[-_/]/g,' ')+' '+decodeURIComponent(o.murl).replace(/[-_/]/g,' '));
+      const own=brand&&deacc(o.purl||'').includes(deacc(brand).replace(/[^a-z0-9]/g,''));
+      out.push({u:o.murl,page:o.purl||'',ratio,own});
+    }
+    return out.filter(x=>x.ratio>=0.6&&!BAD_IMG.test(x.u)).sort((a,b)=>(b.own-a.own)||(b.ratio-a.ratio));
+  }catch(e){return [];}
+}
 /* 상품 페이지가 이 이름의 상품인지 확인하고, 그 상품 사진만 가져옴 */
-async function checkItem(it){
+async function checkItem(it,brand){
   const res={imgs:[],verify:'nopage',fabricOk:false,page:''};
   if(!AB)return res;
   const tryUrl=async u=>{
@@ -623,6 +640,11 @@ async function checkItem(it){
   }
   // 사진 주소를 AI가 직접 준 경우: 페이지 확인이 안 됐으면 쓰지 않음
   if(it.img&&/^https?:/.test(it.img)&&res.verify==='ok'&&!res.imgs.includes(it.img))res.imgs.push(it.img);
+  // 페이지를 못 열었거나 사진이 없으면: 이미지 검색에서 이름이 맞는 사진 찾기
+  if(!res.imgs.length){
+    const found=await imageSearch(`${brand||''} ${it.name}`.trim(),it.name,brand);
+    if(found.length){res.imgs=found.slice(0,6).map(x=>x.u);if(res.verify!=='ok'){res.verify='search';res.page=found[0].page;}}
+  }
   if(!res.imgs.length&&res.verify!=='mismatch'&&ytId(it.video))res.imgs.push(`https://i.ytimg.com/vi/${ytId(it.video)}/hqdefault.jpg`);
   return res;
 }
@@ -630,7 +652,7 @@ async function checkItem(it){
 function trust(x){
   if(x.imgState!==2||!x.verify)return null;
   const ai=Math.max(0,Math.min(100,+(x.confidence)||60));
-  let t=ai*0.5+(x.verify==='ok'?35:x.verify==='nopage'?10:0)+(x.fabricOk?15:x.fabricGuess?0:5);
+  let t=ai*0.5+(x.verify==='ok'?35:x.verify==='search'?25:x.verify==='nopage'?10:0)+(x.fabricOk?15:x.fabricGuess?0:5);
   if(x.verify==='mismatch')t=Math.min(t,40);
   return Math.max(5,Math.min(99,Math.round(t)));
 }
@@ -651,11 +673,11 @@ function pump(){while(imgPool<6&&imgQueue.length){const j=imgQueue.shift();imgPo
 function fillImages(rep,secId){
   const sec=rep.sections[secId];if(!sec||!sec.items)return;
   sec.items.forEach((it,i)=>{
-    if(it.imgState===2&&it.verify)return;
+    if(it.imgState===2&&it.verify&&(it.cv===2||(it.imgs||[]).length))return;
     it.imgState=1;
     queueImg(async()=>{
-      const r=await checkItem(it);const list=r.imgs;
-      it.imgs=list;it.imgState=2;it.verify=r.verify;it.fabricOk=r.fabricOk;it.page=r.page;
+      const r=await checkItem(it,rep.kind&&rep.kind!=='brand'?(it.brands||[])[0]||'':((rep.info||{}).name||rep.name));const list=r.imgs;
+      it.imgs=list;it.imgState=2;it.verify=r.verify;it.cv=2;it.fabricOk=r.fabricOk;it.page=r.page;
       saveRep(rep);
       if(S.rep===rep.key&&S.sec===secId&&S.view==='report'&&!S.detail)render();
       if(S.detail&&S.detail.sec===secId&&S.detail.i===i&&S.rep===rep.key)render();
@@ -833,7 +855,7 @@ function cardHTML(x,i,secId){
   const sc=(x.brazil||{}).score;const cn=(x.countries||[]).length;
   const ph=x.imgs&&x.imgs[0]?`style="background-image:url('${img(x.imgs[0])}')"`:'';
   return `<button class="item" data-act="detail" data-i="${i}">
-    <div class="ph ${x.imgState===2?'':'load'}" ${ph}>${x.imgs&&x.imgs[0]?'':(x.imgState===2?(x.verify==='mismatch'?'<span style="font-size:13px;text-align:center;padding:10px">⚠️ 사진 확인 안 됨<br>(다른 상품 페이지)</span>':'👗'):'')}</div>
+    <div class="ph ${x.imgState===2?'':'load'}" ${ph}>${x.imgs&&x.imgs[0]?'':(x.imgState===2?(x.verify==='mismatch'?'<span style="font-size:13px;text-align:center;padding:10px">⚠️ 사진 확인 안 됨<br>(다른 상품 페이지)</span>':'<span style="font-size:13px;text-align:center;padding:10px">👗<br>맞는 사진을 못 찾았어요<br>눌러서 🖼️ 구글에서 보기</span>'):'')}</div>
     <div class="badges">${trust(x)!=null?`<span class="bd ${trustCls(trust(x))}">${x.verify==='mismatch'?'⚠':'✔'} ${trust(x)}%</span>`:''}${sc!=null&&sc!==''?`<span class="bd ${scoreCls(sc)}">🇧🇷 ${esc(sc)}</span>`:''}${secId==='newin'&&cn>=2?`<span class="bd">🌍 ${cn}개국</span>`:''}</div>
     <span class="num">${x.imgs&&x.imgs.length>1?'📷'+x.imgs.length:''}</span>
     <div class="info"><div class="nm">${esc(x.name)}</div><div class="ty">${x.person?'⭐ '+esc(x.person)+' · ':''}${esc(x.type||'')}${!x.person&&x.fabric?' · '+esc(x.fabric):''}</div></div></button>`;
@@ -898,7 +920,7 @@ function detailHTML(){
 }
 function trustHTML(x){
   const t=trust(x);if(t==null)return x.imgState===1?'<div class="card"><span class="spin"></span>정보가 맞는지 확인하는 중…</div>':'';
-  const v={ok:'✅ 상품 페이지에서 이 이름의 상품을 확인했어요',mismatch:'⚠️ AI가 준 주소가 다른 상품 페이지였어요 — 사진은 빼고 보여줘요',nopage:'➖ 상품 페이지를 열지 못해서 확인을 못 했어요'}[x.verify]||'';
+  const v={ok:'✅ 상품 페이지에서 이 이름의 상품을 확인했어요',mismatch:'⚠️ AI가 준 주소가 다른 상품 페이지였어요 — 사진은 빼고 보여줘요',search:'🔎 상품 페이지는 막혀 있어서, 이미지 검색에서 이름이 같은 사진을 찾았어요',nopage:'➖ 상품 페이지를 열지 못해서 확인을 못 했어요'}[x.verify]||'';
   return `<div class="card score"><div class="c" style="background:var(--${trustCls(t)==='g'?'ok':trustCls(t)==='m'?'mid':'sub'})">${t}%</div>
     <div style="font-size:13.5px;line-height:1.55"><b>정보 신뢰도</b><div>${v}</div>
     <div>${x.fabricOk?'✅ 원단 성분이 페이지 표시와 같아요':x.fabricGuess?'➖ 원단은 사진·설명으로 추측했어요':'➖ 원단 성분은 페이지에서 확인 못 했어요'}</div>
@@ -947,7 +969,7 @@ async function act(a,v,el){
     (async()=>{for(const n of list){const p=research(n);await waitPhase(repKey(n));p;}})();
     setTimeout(render,50);
   }
-  else if(a==='open'){const rep=loadRep(v);S.rep=v;S.view='report';S.sec=rep?secsOf(rep)[0].id:'steady';S.sort='base';render();if(rep)secsOf(rep).forEach(s=>{const sec=(rep.sections||{})[s.id];if(sec&&sec.items&&sec.items.some(x=>x.imgState!==2||!x.verify)&&!running[v]&&!(rep.kind==='forecast'&&s.id!=='item'))fillImages(rep,s.id);});}
+  else if(a==='open'){const rep=loadRep(v);S.rep=v;S.view='report';S.sec=rep?secsOf(rep)[0].id:'steady';S.sort='base';render();if(rep)secsOf(rep).forEach(s=>{const sec=(rep.sections||{})[s.id];if(sec&&sec.items&&sec.items.some(x=>x.imgState!==2||!x.verify||(x.cv!==2&&!(x.imgs||[]).length))&&!running[v]&&!(rep.kind==='forecast'&&s.id!=='item'))fillImages(rep,s.id);});}
   else if(a==='home'){S.view='home';S.detail=null;render();}
   else if(a==='settings'){S.view='settings';render();}
   else if(a==='news'){S.view='news';render();}
