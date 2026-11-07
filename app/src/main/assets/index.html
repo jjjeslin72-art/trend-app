@@ -133,6 +133,7 @@ const S={
   pcountries:LS.get('pcountries',['kr','us','br']),
   markets:LS.get('markets',['shein','temu']),
   ncolors:LS.get('ncolors',7),
+  onlyOk:LS.get('onlyOk',false),
   index:LS.get('index',[]),   // [{key,name,at}]
   view:'home',rep:null,sec:'steady',sort:'base',detail:null,
 };
@@ -792,11 +793,15 @@ function reportHTML(){
     else if(rep.kind==='forecast'&&S.sec==='color')body=colorHTML(rep,sec,meta);
     else if(rep.kind==='forecast'&&S.sec==='fabric')body=forecastHTML(rep,S.sec,sec,meta);
     else{
-      const items=sortedItems(sec);
+      const all=sortedItems(sec);
+      const okN=all.filter(o=>(trust(o.x)||0)>=75).length,waitN=all.filter(o=>trust(o.x)==null).length;
+      const items=S.onlyOk?all.filter(o=>(trust(o.x)||0)>=75):all;
       body=`<div class="muted" style="margin-bottom:8px">${meta.long}${S.sec==='newin'&&rep.kind!=='people'?' · '+(rep.countries||[]).map(cName).join(', '):''}</div>
       ${sec.summary?`<div class="sum">${esc(sec.summary)}</div>`:''}${sec.note?`<div class="note">📌 ${esc(sec.note)}</div>`:''}
       <div class="row" style="justify-content:space-between;margin-bottom:10px"><span class="muted">${items.length}개${(()=>{const ts=items.map(o=>trust(o.x)).filter(t=>t!=null);return ts.length?` · 평균 신뢰도 ${Math.round(ts.reduce((a,b)=>a+b,0)/ts.length)}%`:'';})()}</span>
       <select class="sel" id="sortSel"><option value="base">기본 순서</option><option value="trust">✔ 신뢰도순</option><option value="score">🇧🇷 브라질 점수순</option><option value="countries">🌍 나라 많은 순</option><option value="type">종류별</option></select></div>
+      <div class="row" style="margin:-2px 0 10px"><button class="chip ${S.onlyOk?'on':''}" data-act="onlyok">✔ 확인된 것만 보기 (${okN}/${all.length})</button>${waitN?`<span class="muted"><span class="spin"></span>${waitN}개 확인 중</span>`:''}</div>
+      ${S.onlyOk&&!items.length?`<div class="note">${waitN?'아직 확인 중이에요. 조금만 기다려 주세요':'이 항목에는 확인된 모델이 없어요. 버튼을 다시 누르면 전부 볼 수 있어요'}</div>`:''}
       <div class="grid">${items.map(({x,i})=>cardHTML(x,i,S.sec)).join('')}</div>`;
     }
   }
@@ -999,6 +1004,7 @@ async function act(a,v,el){
     if(AB)AB.shareText(t);else navigator.clipboard&&navigator.clipboard.writeText(t);}
   else if(a==='savekey'){saveKey($('#keyIn').value);toast('저장했어요');}
   else if(a==='testkey'){const ki=$('#keyIn');if(ki)saveKey(ki.value);toast('시험 중…');try{await gemini('"연결 성공" 이라고만 답해.',{search:false});toast('✅ 연결 성공!');}catch(e){toast('⚠️ '+errMsg(e),4000);}}
+  else if(a==='onlyok'){S.onlyOk=!S.onlyOk;LS.set('onlyOk',S.onlyOk);render();}
   else if(a==='delrep'){
     if(running[v]){toast('조사 중에는 지울 수 없어요');return;}
     const r=loadRep(v);if(!confirm2(`"${r?r.name:v}" 리포트를 지울까요?`))return;
