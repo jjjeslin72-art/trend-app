@@ -32,7 +32,7 @@ object Net {
             val desktop = host.endsWith("bing.com")
             c.setRequestProperty("User-Agent", if (preview) UA_PREVIEW else if (desktop) UA_DESKTOP else UA_MOBILE)
             c.setRequestProperty("Accept", accept)
-            c.setRequestProperty("Accept-Language", "ko-KR,ko;q=0.9,pt-BR;q=0.8,en;q=0.7,es;q=0.6")
+            c.setRequestProperty("Accept-Language", if (preview) "en-US,en;q=0.9" else "ko-KR,ko;q=0.9,pt-BR;q=0.8,en;q=0.7,es;q=0.6")
             val code = c.responseCode
             if (code in 300..399) {
                 val loc = c.getHeaderField("Location") ?: return Result(code, ByteArray(0), "", u)
