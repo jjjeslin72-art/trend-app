@@ -243,9 +243,10 @@ items의 name은 "트렌드 이름 — 대표 브랜드" 형식, brands에는 �
   if(rep.kind==='shops'){
     const where=sec==='aimores'?'상파울루 봉헤치로(Bom Retiro: Rua dos Aimorés, Rua José Paulino, Rua da Graça, Rua Ribeiro de Lima 등)에 매장이 있는 여성복 가게(도매·도소매)'
       :sec==='bras'?'상파울루 브라스(Brás: Rua Oriente, Rua Maria Marcolina, Feirinha da Madrugada 등)에 매장이 있는 여성복 가게(도매·도소매)'
+      :sec==='online'?'오프라인 매장 없이 자기 사이트(온라인 쇼핑몰)·인스타그램·왓츠앱으로만 파는 브라질 여성복 쇼핑몰 (소매·도매 둘 다). 사이트 방문자 수(Similarweb 등), 인스타 팔로워, Reclame Aqui 평판을 함께 봐'
       :'인스타그램·틱톡으로 유명한 브라질 여성복 가게·온라인 쇼핑몰 (봉헤치로·브라스 가게 포함)';
     return head+`\n\n[할 일] ${where} 중에서 SNS 노출(인스타그램 팔로워, 틱톡 인기, 구글 지도 리뷰 수, 기사·유튜브 언급)이 큰 순서로 15곳을 찾아 순위를 매겨. 매출은 공개되지 않으니 이런 노출 정보로 판단해. 실제로 있는 가게만, 인스타 계정은 검색에서 확인한 것만.
-items 각각: {"name":"가게 이름","instagram":"@계정 (확인된 것만, 모르면 빈칸)","followers":"인스타 팔로워 수 (예: 120000, 모르면 빈칸)","tiktok":"틱톡 계정/팔로워 (알면)","reviews":"구글 리뷰 수·별점 (알면)","address":"구체적인 주소 (거리·번지)","sells":"주로 파는 옷 (한국어, 예: 원피스·세트·니트)","price":"도매가 대략 (R$, 알면)","style":"스타일 한 줄 (한국어)","why":"왜 인기 있는지 한 줄 (한국어)","confidence":0~100,"url":"근거 주소(확인된 것만)"}
+items 각각: {"name":"가게 이름","instagram":"@계정 (확인된 것만, 모르면 빈칸)","followers":"인스타 팔로워 수 (예: 120000, 모르면 빈칸)","tiktok":"틱톡 계정/팔로워 (알면)","reviews":"구글 리뷰 수·별점 (알면)","address":"구체적인 주소 (거리·번지, 매장 없으면 빈칸)","site":"쇼핑몰 사이트 주소 (확인된 것만)","traffic":"월 방문자 수 (알면, 예: 월 50만)","sells":"주로 파는 옷 (한국어, 예: 원피스·세트·니트)","price":"도매가 대략 (R$, 알면)","style":"스타일 한 줄 (한국어)","why":"왜 인기 있는지 한 줄 (한국어)","confidence":0~100,"url":"근거 주소(확인된 것만)"}
 답은 설명 없이 JSON 하나만: {"summary":"이 지역 가게들 흐름 요약 (한국어 2~3문장)","note":"","items":[...15개...]}`;}
   if(rep.kind==='forecast'){const ctx=savedContext();
     const base=head+`\n2027년 브라질 시즌: 2027 가을겨울(3~8월), 2027/28 봄여름(9월~2028년 2월). 세계 흐름(유럽·미국·아시아·쉐인 같은 중국 대형 쇼핑몰)과 브라질 전망이 다를 때는 꼭 짚어서 (예: 세계는 리넨이 뜨지만 브라질에서는 값과 날씨 때문에 시폰·비스코스가 뜰 것).
@@ -481,7 +482,8 @@ function specialSecs(kind){
   if(kind==='people')return S.pcountries.map(c=>({id:c,icon:flag(c),title:cName(c),long:'영향력 TOP 5 인물의 최근 의상'}));
   if(kind==='shops')return [{id:'aimores',icon:'🏬',title:'봉헤치로·아이모레스',long:'봉헤치로(아이모레스·주제 파울리누 등) 여성복 가게 순위'},
     {id:'bras',icon:'🏬',title:'브라스',long:'브라스 여성복 가게 순위'},
-    {id:'sns',icon:'📱',title:'SNS 인기 가게',long:'인스타·틱톡으로 유명한 브라질 여성복 가게·쇼핑몰'}];
+    {id:'sns',icon:'📱',title:'SNS 인기 가게',long:'인스타·틱톡으로 유명한 브라질 여성복 가게·쇼핑몰'},
+    {id:'online',icon:'🌐',title:'온라인 전용',long:'매장 없이 사이트·인스타로만 파는 브라질 여성복 쇼핑몰 순위'}];
   if(kind==='market')return S.markets.map(m=>({id:m,icon:'🛒',title:(MARKETS.find(x=>x[0]===m)||[m,m])[1],long:'지금 가장 많이 팔리는 여성복'}));
   return [{id:'brief',icon:'📝',title:'요점 정리',long:'전부 모아서 한눈에 — 무엇을 만들고, 어떤 원단·색을 쓸지'},
     {id:'color',icon:'🎨',title:`색상`,long:`브라질 기본색 5 + 2027 유행색 ${S.ncolors} + 브라질에선 안 뜨는 색`},
@@ -706,10 +708,12 @@ function shopsHTML(rep,sec,meta){
     ${x.sells?`<div class="ln"><b>👗 주력</b> ${esc(x.sells)}</div>`:''}
     ${x.style?`<div class="ln"><b>스타일</b> ${esc(x.style)}</div>`:''}
     ${x.price?`<div class="ln"><b>가격</b> ${esc(x.price)}</div>`:''}
+    ${x.traffic?`<div class="ln"><b>🌐 방문자</b> ${esc(x.traffic)}</div>`:''}
     ${x.reviews?`<div class="ln"><b>⭐ 리뷰</b> ${esc(x.reviews)}</div>`:''}
     ${x.tiktok?`<div class="ln"><b>🎵 틱톡</b> ${esc(x.tiktok)}</div>`:''}
     ${x.why?`<div class="br">${esc(x.why)}</div>`:''}
     <div class="chips">${h?`<button class="chip" data-act="url" data-v="https://www.instagram.com/${esc(h)}/">📷 인스타</button>`:''}
+      ${x.site?`<button class="chip" data-act="url" data-v="${esc(/^https?:/.test(x.site)?x.site:'https://'+x.site)}">🌐 사이트</button>`:''}
       ${x.address?`<button class="chip" data-act="url" data-v="https://www.google.com/maps/search/?api=1&query=${q(x.address)}">🗺️ 지도</button>`:''}
       <button class="chip on" data-act="shopresearch" data-v="${esc(x.name)}" data-h="${esc(h)}" data-a="${esc(x.address||'')}">🔍 이 가게 조사하기</button></div>
   </div>`;}).join('')}`;
@@ -800,7 +804,7 @@ function homeHTML(){
   <div class="chips">${S.picked.map(b=>`<button class="chip sel" data-act="unpick" data-v="${esc(b)}">${esc(b)}<span class="x">✕</span></button>`).join('')||'<span class="muted">아래에서 고르거나 이름을 써서 추가하세요</span>'}</div>
   ${(()=>{let n=0;return BRAND_TIERS.map(([t,d,bs])=>`<div style="margin-top:12px"><b style="font-size:14px">${t}</b> <span class="muted">${d}</span></div>
     <div class="chips" style="margin-top:6px">${bs.map(b=>{n++;const on=S.picked.includes(b);return `<button class="chip ${on?'sel':''}" data-act="${on?'unpick':'pick'}" data-v="${esc(b)}"><b style="opacity:.6">${n}</b> ${esc(b)}${on?'<span class="x">✓</span>':''}</button>`;}).join('')}</div>`).join('');})()}
-  <button class="card" data-act="special" data-v="shops" style="width:100%;text-align:left;margin-top:14px;border-color:var(--gold)"><b>🏆 인기 가게 순위 보기</b><div class="muted">봉헤치로·아이모레스 / 브라스 / SNS 인기 가게 — 인스타 팔로워·리뷰로 순위. 마음에 드는 가게는 바로 조사</div></button>
+  <button class="card" data-act="special" data-v="shops" style="width:100%;text-align:left;margin-top:14px;border-color:var(--gold)"><b>🏆 인기 가게 순위 보기</b><div class="muted">봉헤치로·아이모레스 / 브라스 / SNS 인기 / 🌐 온라인 전용 — 팔로워·리뷰·방문자로 순위. 마음에 드는 가게는 바로 조사</div></button>
   <h2>② 신상 볼 나라 <span class="muted">(여러 개 고르기)</span></h2>
   <div class="chips">${COUNTRIES.map(([c,n])=>`<button class="chip ${S.countries.includes(c)?'on':''}" data-act="country" data-v="${c}">${n}</button>`).join('')}</div>
   <button class="btn acc big" data-act="go" ${S.picked.length&&S.countries.length?'':'disabled'}>🔍 ${S.picked.length}곳 조사 시작</button>
@@ -1057,7 +1061,14 @@ async function act(a,v,el){
   else if(a==='findaddr'){findAddress(S.rep);}
   else if(a==='reident'){const rep=loadRep(S.rep);if(rep&&!running[rep.key]&&confirm2('같은 이름의 다른 가게를 찾아서 처음부터 다시 조사할까요?'))research(rep.name,{kind:'brand'});}
   else if(a==='retrysec'){retrySection(v);}
-  else if(a==='special'){if(!apiKey()&&!(AB&&AB.ask)){toast('먼저 ⚙️ 설정에서 키를 넣어 주세요');return;}const secs=specialSecs(v);if(!secs.length){toast('먼저 골라 주세요');return;}special(v);S.rep=repKey(SPECIAL[v]);S.view='report';S.sec=secs[0].id;S.sort='base';setTimeout(render,50);}
+  else if(a==='special'){if(!apiKey()&&!(AB&&AB.ask)){toast('먼저 ⚙️ 설정에서 키를 넣어 주세요');return;}const secs=specialSecs(v);
+    const old=loadRep(repKey(SPECIAL[v]));
+    if(v==='shops'&&old&&old.secs&&!running[old.key]){const miss=secs.filter(s=>!old.secs.some(o=>o.id===s.id));
+      S.rep=old.key;S.view='report';S.sort='base';
+      if(miss.length){old.secs=secs;saveRep(old);S.sec=miss[0].id;render();
+        running[old.key]=true;workBegin(old.name);Promise.all(miss.map(m=>runSection(old,m))).finally(()=>{delete running[old.key];workEnd();notifyDone('✅ 가게 순위 추가 조사 끝!','눌러서 보기',old.key);render();});}
+      else{S.sec=secs[0].id;render();}
+      return;}if(!secs.length){toast('먼저 골라 주세요');return;}special(v);S.rep=repKey(SPECIAL[v]);S.view='report';S.sec=secs[0].id;S.sort='base';setTimeout(render,50);}
   else if(a==='market'){S.markets=S.markets.includes(v)?S.markets.filter(x=>x!==v):[...S.markets,v];LS.set('markets',S.markets);render();}
   else if(a==='ncolors'){S.ncolors=+v;LS.set('ncolors',S.ncolors);render();}
   else if(a==='show'){S.shows=S.shows.includes(v)?S.shows.filter(x=>x!==v):[...S.shows,v];LS.set('shows',S.shows);render();}
