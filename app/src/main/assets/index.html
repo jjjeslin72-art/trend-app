@@ -215,7 +215,8 @@ function who(rep){
 const SHOP_FIELDS=[['good','👍 잘 팔리는 것','원단·아이템·색·핏 (예: 리넨, 와이드 팬츠, 베이지)'],['bad','👎 안 팔리는 것','예: 알파이아타리아(정장), 보라색'],
   ['customers','👥 주 손님','예: 브라질 전국 소매 가게 사장님, 30~50대 여성용'],['price','💰 우리 도매가','예: R$ 40~120'],['style','✨ 우리 스타일','예: 편하고 시원한 캐주얼, 리조트룩'],['note','📝 기타','시즌·체형·지역 등 알아두면 좋은 것']];
 function getShop(){return LS.get('shop',{good:'리넨',bad:'알파이아타리아(정장)'});}
-function shopCtx(){const sh=getShop();const L=SHOP_FIELDS.filter(([k])=>String(sh[k]||'').trim()).map(([k,t])=>`${t.replace(/^\S+\s/,'')}: ${sh[k]}`);
+function shopCtx(){return shopCtx0()+salesCtx();}
+function shopCtx0(){const sh=getShop();const L=SHOP_FIELDS.filter(([k])=>String(sh[k]||'').trim()).map(([k,t])=>`${t.replace(/^\S+\s/,'')}: ${sh[k]}`);
   return L.length?`\n[사장님 가게의 실제 판매 경험 — 가장 중요한 근거야. 인터넷 자료나 세계 유행과 다르면 이 경험을 따라. 안 팔리는 것은 추천하지 말고, 브라질 점수도 이 가게 기준으로 매겨]\n${L.join('\n')}\n`:'';}
 const NO_PARTY='파티복·이브닝드레스·웨딩/하객 드레스(moda festa)는 사장님이 안 만들어서 필요 없어. 결과에서 빼고 일상복·출근복·캐주얼 위주로.';
 const ITEM_SPEC=`각 모델(items)마다 아래 칸을 채워:
@@ -523,6 +524,7 @@ async function research(name,{reuseInfo,kind='brand',secs}={}){
   running[key]=true;
   workBegin(name);
   let rep=loadRep(key)||{key,name,sections:{}};
+  if(kind==='forecast'){const pv=snapPrev(rep);if(pv)rep.prev=pv;}
   rep.name=name;rep.at=Date.now();rep.countries=S.countries.slice();rep.sections={};
   rep.kind=kind;if(kind==='forecast')rep.ncolors=S.ncolors;if(secs)rep.secs=secs;else if(kind==='brand')delete rep.secs;
   rep.status=kind==='brand'?'identify':'run';
@@ -836,6 +838,7 @@ function render(){
   else if(S.view==='settings')app.innerHTML=settingsHTML();
   else if(S.view==='news')app.innerHTML=newsHTML();
   else if(S.view==='shop')app.innerHTML=shopEditHTML();
+  else if(S.view==='board')app.innerHTML=boardHTML();
   if(S.detail)app.insertAdjacentHTML('beforeend',detailHTML());
   bind();
 }
@@ -849,6 +852,9 @@ function homeHTML(){
   <div class="hero"><div style="font-size:13px;opacity:.75">한 번 조사하면</div>
     <div style="font-size:17px;line-height:1.55;margin-top:4px">🔁 <b>스테디 모델</b> 10 · 🔥 <b>2026 주력</b> 10<br>🆕 <b>지금 해외 신상</b> 10 · 🎬 영상까지</div>
     <div style="font-size:12.5px;opacity:.75;margin-top:8px">원단 성분 · 브라질 판매 점수 · 여러 나라 동시 출시 표시</div></div>
+  ${digestCard()}
+  ${getSales()?salesHTML(false):''}
+  <button class="card" data-act="boardview" style="width:100%;text-align:left;border-color:var(--gold)"><b>📋 다음 시즌 기획판 ${getBoard().length?getBoard().length+'개':''}</b><div class="muted">⭐로 담은 옷·색·원단 모아 보기 · 원단 가게 문의</div></button>
   ${news.length?`<button class="card" data-act="news" style="width:100%;text-align:left;border-color:var(--acc)"><b>🆕 새 상품 소식 ${news.length}개</b><div class="muted">알림 켠 브랜드에 새로 올라온 상품</div></button>`:''}
   <h2>① 조사할 브랜드·가게</h2>
   <div class="row"><input class="inp" id="brandIn" placeholder="예: Zara, 봉헤치로 가게 이름" enterkeyhint="done"><button class="btn" data-act="add">추가</button></div>
@@ -914,12 +920,12 @@ function reportHTML(){
     else if(sec.status==='error')body=`<div class="err">⚠️ ${esc(sec.error)}</div><button class="btn big" data-act="retrysec" data-v="${esc(S.sec)}">↻ 이 항목만 다시 조사</button>`;
     else if(rep.kind==='shops')body=shopsHTML(rep,sec,meta);
     else if(rep.kind==='forecast'&&S.sec==='item'&&false)body='';
-    else if(rep.kind==='forecast'&&S.sec==='brief'){['color','fabric'].forEach(k=>fillForecastImgs(rep,k));body=accHTML(sec,true)+briefPics(rep)+briefHTML(sec);}
+    else if(rep.kind==='forecast'&&S.sec==='brief'){['color','fabric'].forEach(k=>fillForecastImgs(rep,k));body=accHTML(sec,true)+diffHTML(rep,['color','fabric','item'])+briefPics(rep)+briefHTML(sec);}
     else if(rep.kind==='forecast'&&S.sec==='mills')body=accHTML(sec)+millsHTML(sec,meta);
-    else if(rep.kind==='forecast'&&S.sec==='color'){fillForecastImgs(rep,'color');body=accHTML(sec)+colorHTML(rep,sec,meta);}
-    else if(rep.kind==='forecast'&&S.sec==='fabric'){fillForecastImgs(rep,'fabric');body=accHTML(sec)+forecastHTML(rep,S.sec,sec,meta);}
+    else if(rep.kind==='forecast'&&S.sec==='color'){fillForecastImgs(rep,'color');body=accHTML(sec)+diffHTML(rep,['color'])+colorHTML(rep,sec,meta);}
+    else if(rep.kind==='forecast'&&S.sec==='fabric'){fillForecastImgs(rep,'fabric');body=accHTML(sec)+diffHTML(rep,['fabric'])+forecastHTML(rep,S.sec,sec,meta);}
     else{
-      const predBanner=rep.kind==='forecast'?accHTML(sec):'';
+      const predBanner=rep.kind==='forecast'?accHTML(sec)+(S.sec==='item'?diffHTML(rep,['item']):''):'';
       const all=sortedItems(sec);
       const okN=all.filter(o=>(trust(o.x)||0)>=75).length,waitN=all.filter(o=>trust(o.x)==null).length;
       const items=S.onlyOk?all.filter(o=>(trust(o.x)||0)>=75):all;
@@ -957,7 +963,9 @@ function briefPics(rep){
   if(fabs.length)h+=`<div class="bh">🧵 원단 TOP 5</div><div class="bstrip">${fabs.map((x,i)=>x.fimgs&&x.fimgs[0]?tile(x.fimgs[0],(i+1)+'. '+(x.namePt||x.name),''):`<div class="bp"><div class="bpi load"></div><div class="bpl">${esc((i+1)+'. '+(x.namePt||x.name))}</div></div>`).join('')}</div>`;
   return h?`<div class="card bpics">${h}<div class="muted" style="margin-top:6px">사진은 인터넷 검색 예시예요 · 누르면 크게</div></div>`:'';
 }
-function briefHTML(sec){
+function briefHTML(sec){const sal=salesHTML(false);
+  return sal+briefHTML0(sec);}
+function briefHTML0(sec){
   const sh=getShop();const mine=[['good','👍 잘 팔리는 것'],['bad','👎 안 팔리는 것']].filter(([k])=>sh[k]);
   return `${mine.length?`<div class="fc" style="border-color:var(--ok);background:#F2FAF5"><div class="nm">🏪 사장님 판매 경험 (가장 확실한 기준)</div>${mine.map(([k,t])=>`<div class="ln"><b>${t}</b> ${esc(sh[k])}</div>`).join('')}<div class="muted" style="margin-top:6px">아래 예측이 이 내용과 다르면 이게 맞아요</div></div>`:''}
   ${sec.summary?`<div class="sum" style="font-size:15px"><b>📝 한눈에</b><br>${esc(sec.summary).replace(/\n/g,'<br>')}</div>`:''}
@@ -996,7 +1004,7 @@ function forecastHTML(rep,id,sec,meta,bare){
   ${!bare&&sec.summary?`<div class="sum">${esc(sec.summary).replace(/\n/g,'<br>')}</div>`:''}${!bare&&sec.note?`<div class="note">📌 ${esc(sec.note)}</div>`:''}
   ${it.map((x,i)=>{const sc=(x.brazil||{}).score;return `<div class="fc">
     <div class="hd"><div class="sw" style="${id==='color'?'background:'+hex(x.hex):''}">${id==='color'?'':'🧵'}</div>
-      <div style="flex:1;min-width:0"><div class="rk">${i+1}위</div><div class="nm">${esc(id==='fabric'?(x.namePt||x.name):x.name)}</div><div class="muted">${id==='fabric'?'':esc(x.namePt||'')}${id==='color'&&x.hex?' · '+esc(x.hex):''}</div></div>
+      <div style="flex:1;min-width:0"><div class="rk">${i+1}위${isNewVsPrev(rep,id,x)?' <span class="bd g" style="font-size:11px">↑ 새로</span>':''}</div><div class="nm">${esc(id==='fabric'?(x.namePt||x.name):x.name)}</div><div class="muted">${id==='fabric'?'':esc(x.namePt||'')}${id==='color'&&x.hex?' · '+esc(x.hex):''}</div></div>
       ${sc!=null&&sc!==''?`<span class="bd ${scoreCls(sc)}" style="font-size:13px">🇧🇷 ${esc(sc)}</span>`:''}</div>
     ${x.fimg===2?stripHTML(x.fimgs):x.fimg===1?'<div class="fstrip load"><i></i><i></i><i></i></div>':''}
     ${x.world?`<div class="ln"><b>🌍 세계</b> ${esc(x.world)}</div>`:''}
@@ -1008,7 +1016,11 @@ function forecastHTML(rep,id,sec,meta,bare){
     ${x.price?`<div class="ln"><b>가격대</b> ${esc(x.price)}</div>`:''}
     ${(x.brazil||{}).why?`<div class="ln"><b>이유</b> ${esc(x.brazil.why)}</div>`:''}
     ${x.confidence?`<div class="ln"><b>정확도</b> <span class="bd ${trustCls(+x.confidence)}">${esc(x.confidence)}%</span> ${x.evidence?'<span class="muted">근거: '+esc(x.evidence)+'</span>':''}</div>`:''}
-    <div class="chips"><button class="chip" data-act="url" data-v="https://www.google.com/search?tbm=isch&q=${q((x.namePt||x.name)+(id==='color'?' moda feminina 2027':' tecido'))}">🖼️ ${id==='color'?'이 색 옷 사진':'원단 사진'}</button>
+    <div class="chips">${(()=>{const nm=id==='fabric'?(x.namePt||x.name):x.name;const on=inBoard(id,nm);
+        return `<button class="chip ${on?'on':''}" data-act="board" data-v="${esc(JSON.stringify({type:id,name:nm,sub:id==='fabric'?(x.outlook||''):(x.namePt||''),hex:x.hex||'',img:(x.fimgs||[])[0]||''}))}">⭐ ${on?'담음':'기획판'}</button>
+        <button class="chip" data-act="order" data-v="${esc(JSON.stringify(id==='fabric'?{f:[x.namePt||x.name],c:[]}:{f:[],c:[x.namePt||x.name]}))}">💬 원단 가게에 물어보기</button>
+        ${id==='fabric'?`<button class="chip" data-act="buy" data-v="${esc(x.namePt||x.name)}">📍 어디서 사?</button>`:''}`;})()}
+      <button class="chip" data-act="url" data-v="https://www.google.com/search?tbm=isch&q=${q((x.namePt||x.name)+(id==='color'?' moda feminina 2027':' tecido'))}">🖼️ ${id==='color'?'이 색 옷 사진':'원단 사진'}</button>
       ${x.url?`<button class="chip" data-act="url" data-v="${esc(x.url)}">🔗 근거 자료</button>`:''}</div>
   </div>`;}).join('')}`;
 }
@@ -1069,7 +1081,8 @@ function detailHTML(){
   </div>
   ${sc!=null&&sc!==''?`<div class="card score"><div class="c" style="background:var(--${scoreCls(sc)==='g'?'ok':scoreCls(sc)==='m'?'mid':'sub'})">${esc(sc)}</div><div><b>🇧🇷 브라질 판매 점수 <span class="muted" style="font-weight:600">🔮 예측</span></b><div style="font-size:14px;line-height:1.5;margin-top:3px">${esc(b.why||'')}</div></div></div>`:''}
   <div class="acts">
-    ${imgs.length?`<button class="btn acc" data-act="vitrine">👗 Vitrine AI로 보내기</button><button class="btn ghost" data-act="save">💾 사진 저장</button>`:''}
+    ${imgs.length?`<button class="btn acc" data-act="vitrine">👗 Click.moda로 보내기</button><button class="btn ghost" data-act="save">💾 사진 저장</button>`:''}
+    <button class="btn ghost" data-act="board" data-v="${esc(JSON.stringify({type:'item',name:x.name,sub:[x.type,x.fabricPt||x.fabric].filter(Boolean).join(' · '),img:imgs[0]||''}))}">⭐ ${inBoard('item',x.name)?'기획판에 담음':'기획판에 담기'}</button>
     ${x.url?`<button class="btn ghost" data-act="url" data-v="${esc(x.url)}">🔗 원래 페이지</button>`:''}
     <button class="btn ghost" data-act="url" data-v="https://www.google.com/search?tbm=isch&q=${q}">🖼️ 사진 더 찾기</button>
     <button class="btn ghost" data-act="url" data-v="${esc(ytId(x.video)?x.video:'https://www.youtube.com/results?search_query='+q)}">🎬 영상 보기</button>
@@ -1093,6 +1106,7 @@ function shopEditHTML(){
   <div class="note">여기 적은 내용이 모든 조사·🇧🇷 점수·요점 정리·질문 답변의 <b>가장 중요한 기준</b>이 돼요. 인터넷 유행과 달라도 사장님 경험을 따라요</div>
   ${SHOP_FIELDS.map(([k,t,ph])=>`<div class="card"><b>${t}</b><textarea class="inp shopin" data-k="${k}" rows="2" style="width:100%;margin-top:8px;resize:vertical" placeholder="${esc(ph)}">${esc(sh[k]||'')}</textarea></div>`).join('')}
   <button class="btn acc big" data-act="shopsave">💾 저장</button>
+  <h2>📊 재고 앱 판매 기록</h2>${salesHTML(true)}
   <div class="muted" style="text-align:center;margin-top:8px">저장한 뒤 리포트에서 ↻ 다시 조사하거나 📝 요점 정리 다시 만들기를 누르면 반영돼요</div></div>`;
 }
 function settingsHTML(){
@@ -1104,6 +1118,9 @@ function settingsHTML(){
   <div class="card"><b>🔔 새 상품 알림</b><div class="muted" style="margin:4px 0 8px">하루 한 번 확인해요. 리포트 화면 오른쪽 위 🔕를 누르면 추가돼요</div>
     ${w.length?w.map(x=>`<div class="sw" style="padding:8px 0;border-top:1px solid var(--line)"><span>${esc(x.name)} <span class="muted">${esc(x.countries||'')}</span></span><button class="chip" data-act="unwatch" data-v="${esc(x.name)}">끄기</button></div>`).join(''):'<div class="muted">아직 없어요</div>'}
     ${w.length&&AB?'<button class="btn ghost big" data-act="checknow">지금 바로 확인</button>':''}</div>
+  <div class="card"><b>📅 월요일 아침 요점 알림</b><div class="muted" style="margin:4px 0 8px">매주 월요일 아침 8시쯤, 이번 주 바뀐 점 3줄을 알림으로 보내요 (2027 전망·판매 기록·기획판 기준)</div>
+    <button class="btn ${LS.get('digestOn',false)?'acc':'ghost'} big" data-act="digest">${LS.get('digestOn',false)?'✅ 켜짐 (누르면 끄기)':'켜기'}</button>
+    ${LS.get('digestOn',false)&&AB&&AB.digestNow?'<button class="chip" data-act="digestnow" style="margin-top:8px">지금 한 번 받아 보기</button>':''}</div>
   <div class="card"><b>저장 공간</b><div class="muted" style="margin:4px 0 8px">리포트 ${S.index.length}개</div><button class="btn ghost big" data-act="clearall">🗑 리포트 모두 지우기</button></div>
   <div class="muted" style="text-align:center;margin-top:16px">트렌드 레이더 · 개인용 · v${esc(cfg.version||'web')}</div></div>`;
 }
@@ -1148,6 +1165,22 @@ async function act(a,v,el){
   else if(a==='detail'){S.detail={sec:S.sec,i:+el.dataset.i};render();}
   else if(a==='close'){S.detail=null;render();}
   else if(a==='redo'){const rep=loadRep(S.rep);if(rep&&!running[rep.key]){if(!await confirm2('다시 조사할까요? (지금 결과는 새 결과로 바뀌어요)'))return;research(rep.name,{reuseInfo:true,kind:rep.kind||'brand',secs:rep.secs});}}
+  else if(a==='mclose')closeModal();
+  else if(a==='salesclear'){if(await confirm2('판매 기록을 지울까요?')){localStorage.removeItem('sales');render();}}
+  else if(a==='board'){try{toggleBoard(JSON.parse(v));}catch(e){}}
+  else if(a==='boardview'){S.view='board';render();}
+  else if(a==='bdel'){const [t,...n]=String(v).split('|');LS.set('board',getBoard().filter(x=>!(x.type===t&&x.name===n.join('|'))));render();}
+  else if(a==='bvit'){if(AB&&AB.sendToVitrine)AB.sendToVitrine(v);else toast('앱에서만 돼요');}
+  else if(a==='bshare'){const t=boardText();if(AB&&AB.shareText)AB.shareText(t);else{try{navigator.clipboard.writeText(t);toast('복사했어요');}catch(e){}}}
+  else if(a==='bord'){const b=getBoard();openOrder(b.filter(x=>x.type==='fabric').map(x=>x.name),b.filter(x=>x.type==='color').map(x=>x.sub||x.name));}
+  else if(a==='order'){try{const o=JSON.parse(v);openOrder(o.f||[],o.c||[]);}catch(e){}}
+  else if(a==='ordf'||a==='ordc'){const L=a==='ordf'?ORD.fabrics:ORD.colors;const i=L.indexOf(v);if(i>=0)L.splice(i,1);else L.push(v);renderOrder();}
+  else if(a==='ordwa'){const u='https://wa.me/?text='+encodeURIComponent(orderText());if(AB&&AB.open)AB.open(u);else window.open(u);}
+  else if(a==='ordcopy'){const t=orderText();try{if(AB&&AB.copy)AB.copy(t);else await navigator.clipboard.writeText(t);toast('복사했어요');}catch(e){toast('복사하지 못했어요');}}
+  else if(a==='buy')findBuy(v,'fabric');
+  else if(a==='buyredo'){localStorage.removeItem('buy:'+nkey({name:v}));findBuy(v,'fabric');}
+  else if(a==='digest'){const on=!LS.get('digestOn',false);LS.set('digestOn',on);if(AB&&AB.setDigest)AB.setDigest(on,digestCtx());toast(on?'📅 월요일 아침마다 알려 드릴게요':'요점 알림을 껐어요');render();}
+  else if(a==='digestnow'){syncDigest();if(AB&&AB.digestNow)AB.digestNow();}
   else if(a==='ask'){const t=$('#askIn');const q=t?t.value:'';S.askDraft='';askQuestion(q);}
   else if(a==='ask2'){const t=$('#askIn2');const q=t?t.value.trim():'';if(!q)return;S.askDraft2='';S.sec='qa';askQuestion(q);}
   else if(a==='bigimg'){const o=document.createElement('div');o.className='bigov';o.innerHTML=`<img src="${img(v)}"><button>✕</button>`;o.onclick=()=>o.remove();document.body.append(o);}
@@ -1199,6 +1232,127 @@ async function act(a,v,el){
   else if(a==='clearnews'){AB&&AB.setNews('[]');render();}
 }
 function saveKey(k){k=String(k||'').trim();LS.set('key',k);if(AB)AB.setKey(k);}
+
+/* ================= 📊 재고 앱 판매 기록 ================= */
+function getSales(){return LS.get('sales',null);}
+function salesCtx(){const d=getSales();if(!d)return '';
+  const f=a=>(a||[]).slice(0,12).map(x=>`${x.name||x.code}${x.rate!=null?' 판매율 '+Math.round(x.rate)+'%':''}${x.perDay?' 하루 '+(+x.perDay).toFixed(1)+'장':''}`).join(', ');
+  return `\n[재고 정리 앱의 실제 판매 기록 (${new Date(d.at).toLocaleDateString('ko-KR')}) — 사장님 경험만큼 확실한 근거]\n잘 팔림: ${f(d.best)}\n안 팔림: ${f(d.worst)}\n`;}
+function parseSales(text){
+  const i=String(text||'').indexOf('#JAEGO#');if(i<0)return null;
+  try{const d=JSON.parse(text.slice(i+7).trim());if(!d||!Array.isArray(d.best))return null;d.at=d.at||Date.now();return d;}catch(e){return null;}}
+window.__shared=text=>{
+  const d=parseSales(text);
+  if(d){LS.set('sales',d);syncDigest();toast(`📊 판매 기록을 받았어요 (잘 팔림 ${d.best.length} · 안 팔림 ${(d.worst||[]).length})`);S.view='shop';render();return;}
+  toast('받은 글에 판매 기록이 없어요. 재고 앱에서 "트렌드 레이더로 보내기"를 눌러 주세요');};
+function salesHTML(full){const d=getSales();
+  if(!d)return full?`<div class="card" style="border-color:var(--acc)"><b>📊 재고 앱 판매 기록 연결</b><div class="muted" style="margin-top:6px;line-height:1.6">재고 정리 앱 → 맨 아래 <b>📤 트렌드 레이더로 보내기</b> → 공유 창에서 <b>트렌드 레이더</b>를 고르면 실제 판매 숫자가 여기로 들어와요. 모든 조사가 우리 가게 숫자 기준이 돼요</div></div>`:'';
+  const row=(x)=>`<div class="sw" style="padding:5px 0;border-top:1px solid var(--line)"><span>${esc(x.name||x.code)}${x.code&&x.name?` <span class="muted">${esc(x.code)}</span>`:''}</span><b>${x.rate!=null?Math.round(x.rate)+'%':''}</b></div>`;
+  return `<div class="card" style="border-color:var(--acc)"><b>📊 재고 앱 실제 판매</b> <span class="muted">${new Date(d.at).toLocaleDateString('ko-KR')}</span>
+    <div style="margin-top:8px"><b style="font-size:13.5px">👍 잘 팔림</b>${(d.best||[]).slice(0,full?15:5).map(row).join('')}</div>
+    ${(d.worst||[]).length?`<div style="margin-top:8px"><b style="font-size:13.5px">👎 안 팔림</b>${d.worst.slice(0,full?15:3).map(row).join('')}</div>`:''}
+    ${full?'<div class="row" style="margin-top:10px"><button class="chip" data-act="salesclear">🗑 판매 기록 지우기</button></div><div class="muted" style="margin-top:6px">새로 보내면 최신 숫자로 바뀌어요</div>':''}</div>`;}
+
+/* ================= 📈 지난번과 비교 ================= */
+const nkey=x=>deacc(String((x&&(x.namePt||x.name))||'')).replace(/[^a-z0-9가-힣]/g,'');
+function snapPrev(rep){const o={at:rep.at};let any=false;
+  for(const id of ['color','fabric','item']){const it=((rep.sections||{})[id]||{}).items||[];if(it.length){any=true;o[id]=it.map(x=>({k:nkey(x),n:id==='fabric'?(x.namePt||x.name):x.name}));}}
+  return any?o:null;}
+function diffOf(rep,id){const pv=(rep.prev||{})[id];const it=((rep.sections||{})[id]||{}).items||[];if(!pv||!it.length)return null;
+  const pk=new Set(pv.map(x=>x.k)),nk=new Set(it.map(nkey));
+  return {up:it.filter(x=>!pk.has(nkey(x))).map(x=>id==='fabric'?(x.namePt||x.name):x.name),down:pv.filter(x=>!nk.has(x.k)).map(x=>x.n)};}
+const isNewVsPrev=(rep,id,x)=>{const pv=(rep.prev||{})[id];return pv&&!pv.some(p=>p.k===nkey(x));};
+function diffHTML(rep,ids){const rows=ids.map(id=>[id,diffOf(rep,id)]).filter(([,d])=>d&&(d.up.length||d.down.length));
+  if(!rep.prev)return '';
+  const lab={color:'🎨 색',fabric:'🧵 원단',item:'👗 아이템'};
+  return `<div class="card" style="border-color:var(--gold)"><b>📈 지난번(${new Date(rep.prev.at).toLocaleDateString('ko-KR')})과 비교</b>
+    ${rows.length?rows.map(([id,d])=>`<div style="margin-top:8px"><b style="font-size:13.5px">${lab[id]}</b>
+      ${d.up.length?`<div class="ln"><b style="color:var(--ok)">↑ 새로</b> ${esc(d.up.join(', '))}</div>`:''}
+      ${d.down.length?`<div class="ln"><b style="color:var(--acc)">↓ 빠짐</b> ${esc(d.down.join(', '))}</div>`:''}</div>`).join(''):'<div class="muted" style="margin-top:6px">달라진 것 없음</div>'}</div>`;}
+
+/* ================= 공통 아래 창 ================= */
+function openModal(html){closeModal();const m=document.createElement('div');m.className='modal';m.id='mdl';
+  m.innerHTML=`<div class="box">${html}<button class="btn ghost big" data-act="mclose" style="margin-top:12px">닫기</button></div>`;
+  m.addEventListener('click',e=>{if(e.target===m)m.remove();});document.body.appendChild(m);}
+function closeModal(){const m=$('#mdl');if(m)m.remove();}
+function fcItems(id){const r=forecastRep();return r?(((r.sections||{})[id]||{}).items||[]):[];}
+function forecastRep(){for(const r of S.index){const rp=loadRep(r.key);if(rp&&rp.kind==='forecast')return rp;}return null;}
+
+/* ================= 💬 원단 가게에 물어보기 ================= */
+let ORD={fabrics:[],colors:[]};
+function orderText(){
+  const f=ORD.fabrics.join(', ')||'___',c=ORD.colors.join(', ');
+  return `Olá! Tudo bem? 😊\nVocês têm *${f}*${c?` nas cores *${c}*`:''}?\n- Preço por metro\n- Pedido mínimo\n- Tem cartela/amostra?\nObrigada!`;}
+function openOrder(fabrics,colors){
+  ORD={fabrics:fabrics.slice(),colors:colors.slice()};renderOrder();}
+function renderOrder(){
+  const fabs=[...new Set(fcItems('fabric').map(x=>x.namePt||x.name).concat(ORD.fabrics))];
+  const cols=[...new Set(fcItems('color').filter(x=>x.group!=='worldOnly').map(x=>x.namePt||x.name).concat(ORD.colors))];
+  openModal(`<h2 style="margin-top:0">💬 원단 가게에 물어보기</h2>
+   <div class="muted">원단·색을 골라요 → 포르투갈어 메시지가 만들어져요</div>
+   <b style="display:block;margin-top:10px">🧵 원단</b><div class="chips">${fabs.map(f=>`<button class="chip ${ORD.fabrics.includes(f)?'on':''}" data-act="ordf" data-v="${esc(f)}">${esc(f)}</button>`).join('')}</div>
+   <b style="display:block;margin-top:10px">🎨 색</b><div class="chips">${cols.map(f=>`<button class="chip ${ORD.colors.includes(f)?'on':''}" data-act="ordc" data-v="${esc(f)}">${esc(f)}</button>`).join('')}</div>
+   <div class="card" style="white-space:pre-wrap;margin-top:12px;font-size:14.5px;line-height:1.6">${esc(orderText())}</div>
+   <div class="row"><button class="btn acc" style="flex:1;background:#25D366" data-act="ordwa">WhatsApp</button><button class="btn ghost" style="flex:1" data-act="ordcopy">복사</button></div>`);}
+
+/* ================= 📍 이 원단 어디서 사? ================= */
+const buyBusy={};
+async function findBuy(name,kind){
+  const k='buy:'+nkey({name});const c=LS.get(k,null);
+  if(c&&Date.now()-c.at<30*864e5)return showBuy(name,c.list);
+  if(buyBusy[k])return;buyBusy[k]=1;openModal(`<h2 style="margin-top:0">📍 ${esc(name)}</h2><div class="card"><span class="spin"></span>파는 곳 찾는 중… (20~40초)</div>`);
+  try{
+    const t=await gemini(`상파울루에서 "${name}"${kind==='color'?' 색 원단':' 원단'}을 파는 곳을 찾아. 우선 브라스(Brás: Rua Barão de Ladário, Rua Oriente, Rua Maria Marcolina 근처 원단 가게)와 봉헤치로(Bom Retiro) 원단 가게, 그다음 대형 원단 회사 판매처·온라인 원단 쇼핑몰. 실제로 있는 곳만, 구글 검색에서 확인한 것만 6~8곳.
+답은 JSON 배열만: [{"name":"가게 이름","area":"동네 (예: Brás)","address":"주소 (거리·번지, 모르면 빈칸)","instagram":"@계정 (확인된 것만)","whatsapp":"왓츠앱 번호 숫자만 (확인된 것만)","site":"사이트 (확인된 것만)","note":"특징 단답 10자 안팎 (예: 도매만, 최소 1롤)"}]`,{search:true});
+    let list=[];try{list=parseJSON(t.text||t);if(!Array.isArray(list))list=list.items||[];}catch(e){}
+    list=list.filter(x=>x&&x.name).slice(0,8);LS.set(k,{at:Date.now(),list});delete buyBusy[k];showBuy(name,list);
+  }catch(e){delete buyBusy[k];openModal(`<div class="err">⚠️ ${esc(e.message||e)}</div>`);}}
+function showBuy(name,list){
+  const q=encodeURIComponent;
+  openModal(`<h2 style="margin-top:0">📍 ${esc(name)} 파는 곳</h2><div class="muted">AI가 인터넷에서 찾은 곳이에요. 가기 전에 전화·왓츠앱으로 확인하세요</div>
+  ${list.length?list.map(x=>{const ig=String(x.instagram||'').replace(/^@/,'').trim();const wa=String(x.whatsapp||'').replace(/\D/g,'');return `<div class="fc">
+    <div class="nm">${esc(x.name)}</div><div class="muted">${esc([x.area,x.address].filter(Boolean).join(' · '))}${x.note?' · '+esc(x.note):''}</div>
+    <div class="chips"><button class="chip" data-act="url" data-v="https://www.google.com/maps/search/?api=1&query=${q(x.name+' '+(x.address||x.area||'')+' São Paulo')}">🗺️ 지도</button>
+      ${ig?`<button class="chip" data-act="url" data-v="https://www.instagram.com/${esc(ig)}/">📷 인스타</button>`:''}
+      ${wa?`<button class="chip" data-act="url" data-v="https://wa.me/${wa}?text=${q(orderTextFor(name))}">💬 왓츠앱 문의</button>`:''}
+      ${x.site?`<button class="chip" data-act="url" data-v="${esc(x.site)}">🔗 사이트</button>`:''}</div></div>`;}).join(''):'<div class="note">찾지 못했어요</div>'}
+  <button class="chip" data-act="buyredo" data-v="${esc(name)}" style="margin-top:8px">↻ 다시 찾기</button>`);}
+const orderTextFor=name=>`Olá! Tudo bem? Vocês têm ${name}? Qual o preço por metro e o pedido mínimo? Obrigada!`;
+
+/* ================= 📋 다음 시즌 기획판 ================= */
+const getBoard=()=>LS.get('board',[]);
+function inBoard(type,name){return getBoard().some(b=>b.type===type&&b.name===name);}
+function toggleBoard(o){let b=getBoard();const has=b.find(x=>x.type===o.type&&x.name===o.name);
+  if(has){b=b.filter(x=>x!==has);toast('기획판에서 뺐어요');}else{b.push({...o,at:Date.now()});toast('📋 기획판에 담았어요');}LS.set('board',b);render();}
+function boardHTML(){
+  const b=getBoard();const g=t=>b.filter(x=>x.type===t);
+  const hex=h=>/^#?[0-9a-f]{6}$/i.test(String(h||'').trim())?('#'+String(h).trim().replace('#','')):'#ddd';
+  const del=x=>`<button class="chip" data-act="bdel" data-v="${esc(x.type+'|'+x.name)}">✕</button>`;
+  return `<div class="wrap"><div class="top"><button class="back" data-act="home">‹</button><div class="ttl"><b>📋 다음 시즌 기획판</b><span class="muted">${b.length}개</span></div>${b.length?'<button class="back" data-act="bshare" title="공유">📤</button>':''}</div>
+  ${!b.length?`<div class="note">리포트에서 마음에 드는 옷·색·원단의 <b>⭐ 기획판</b>을 누르면 여기 모여요</div>`:''}
+  ${g('item').length?`<h2>👗 옷</h2><div class="grid">${g('item').map(x=>`<div class="item" style="cursor:default"><div class="ph" style="${x.img?`background-image:url('${img(x.img)}')`:''}">${x.img?'':'👗'}</div>
+    <div class="nm" style="padding:6px 8px 0">${esc(x.name)}</div><div class="muted" style="padding:0 8px">${esc(x.sub||'')}</div>
+    <div class="chips" style="padding:6px 8px 8px">${x.img?`<button class="chip" data-act="bvit" data-v="${esc(x.img)}">👗 Click.moda</button>`:''}${del(x)}</div></div>`).join('')}</div>`:''}
+  ${g('color').length?`<h2>🎨 색</h2>${g('color').map(x=>`<div class="fc"><div class="hd"><div class="sw" style="background:${hex(x.hex)}"></div><div style="flex:1"><div class="nm">${esc(x.name)}</div><div class="muted">${esc(x.sub||'')}</div></div>${del(x)}</div></div>`).join('')}`:''}
+  ${g('fabric').length?`<h2>🧵 원단</h2>${g('fabric').map(x=>`<div class="fc"><div class="hd"><div class="sw">🧵</div><div style="flex:1"><div class="nm">${esc(x.name)}</div><div class="muted">${esc(x.sub||'')}</div></div>${del(x)}</div>
+    <div class="chips"><button class="chip" data-act="buy" data-v="${esc(x.name)}">📍 어디서 사?</button></div></div>`).join('')}`:''}
+  ${g('fabric').length||g('color').length?`<button class="btn acc big" data-act="bord">💬 담은 원단·색으로 원단 가게에 물어보기</button>`:''}
+  ${g('item').length?'<div class="muted" style="text-align:center;margin-top:8px">👗 Click.moda를 누르면 옷 합성 앱으로 넘어가 우리 원단 색으로 입혀 볼 수 있어요</div>':''}</div>`;}
+function boardText(){const b=getBoard();const g=(t,h)=>{const xs=b.filter(x=>x.type===t);return xs.length?`${h}\n`+xs.map(x=>`- ${x.name}${x.sub?' ('+x.sub+')':''}`).join('\n'):'';};
+  return ['📋 다음 시즌 기획판',g('item','👗 옷'),g('color','🎨 색'),g('fabric','🧵 원단')].filter(Boolean).join('\n\n');}
+
+/* ================= 📅 월요일 아침 요점 알림 ================= */
+function digestCtx(){const r=forecastRep();const sec=id=>(((r||{}).sections||{})[id]||{});
+  return [shopCtx(),r?`[2027 전망 요약] ${String(sec('brief').summary||'').replace(/\n/g,' / ')}`:'',
+    r?'[유행색] '+(sec('color').items||[]).filter(x=>x.group==='trend').map(x=>x.name).join(', '):'',
+    r?'[원단] '+(sec('fabric').items||[]).map(x=>x.namePt||x.name).join(', '):'',
+    '[기획판] '+getBoard().map(x=>x.name).join(', ')].filter(Boolean).join('\n').slice(0,3500);}
+function syncDigest(){if(AB&&AB.setDigest&&LS.get('digestOn',false))try{AB.setDigest(true,digestCtx());}catch(e){}}
+function getDigests(){try{return AB&&AB.getDigests?JSON.parse(AB.getDigests()||'[]'):LS.get('digests',[]);}catch(e){return [];}}
+function digestCard(){const d=getDigests();const last=d[d.length-1];if(!last)return '';
+  return `<div class="card" style="border-color:var(--gold)"><b>📅 이번 주 요점</b> <span class="muted">${esc(last.at||'')}</span>
+    ${(last.lines||[]).map(l=>`<div class="ln">• ${esc(l)}</div>`).join('')}</div>`;}
+
 function confirm2(t){
   return new Promise(res=>{
     const m=document.createElement('div');m.className='modal';
@@ -1219,6 +1373,7 @@ window.__appBack=()=>{
 // 앱을 껐다 켜서 멈춘 조사는 오류로 표시
 S.index.forEach(r=>{const rp=loadRep(r.key);if(rp&&(rp.status==='run'||rp.status==='identify')){rp.status=Object.values(rp.sections||{}).some(s=>s.status==='done')?'done':'error';rp.error=rp.error||'조사가 중간에 멈췄어요. ↻ 다시 조사를 눌러 주세요';
   for(const k in rp.sections||{})if(rp.sections[k].status==='run')rp.sections[k]={status:'error',error:'중간에 멈췄어요. ↻ 다시 조사',items:[]};LS.set('r:'+r.key,rp);}});
+setTimeout(()=>{try{const t=AB&&AB.takeShared&&AB.takeShared();if(t)window.__shared(t);}catch(e){}syncDigest();},300);
 if(location.hash==='#news')S.view='news';
 else if(location.hash.startsWith('#open=')){const k=decodeURIComponent(location.hash.slice(6));if(loadRep(k)){S.rep=k;S.view='report';}}
 render();

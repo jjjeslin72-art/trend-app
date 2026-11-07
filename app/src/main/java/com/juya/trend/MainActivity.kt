@@ -102,6 +102,8 @@ class MainActivity : ComponentActivity() {
         })
 
         TrendWorker.channel(this)
+        DigestWorker.channel(this)
+        pendingShare = sharedText(intent)
         WorkService.channels(this)
         val open = intent?.getStringExtra("open")
         web.loadUrl("https://appassets.androidplatform.net/assets/index.html" +
@@ -112,8 +114,14 @@ class MainActivity : ComponentActivity() {
             })
     }
 
+    /** 다른 앱(재고 정리 앱)에서 공유로 보낸 글 */
+    private var pendingShare: String? = null
+    private fun sharedText(i: Intent?): String? =
+        if (i?.action == Intent.ACTION_SEND) i.getStringExtra(Intent.EXTRA_TEXT) else null
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        sharedText(intent)?.let { web.evaluateJavascript("window.__shared && window.__shared(${JSONObject.quote(it)})", null) }
         if (intent.getBooleanExtra("news", false)) web.evaluateJavascript("window.__openNews && window.__openNews()", null)
         val open = intent.getStringExtra("open")
         if (!open.isNullOrBlank()) web.evaluateJavascript("window.__openRep && window.__openRep(${JSONObject.quote(open)})", null)
@@ -244,6 +252,35 @@ class MainActivity : ComponentActivity() {
                 js("window.__ask && window.__ask(${JSONObject.quote(id)}, $out)")
             }
         }
+
+        /** 앱이 열릴 때 공유로 받은 글을 한 번 넘김 */
+        @JavascriptInterface
+        fun takeShared(): String { val t = pendingShare ?: ""; pendingShare = null; return t }
+
+        @JavascriptInterface
+        fun copy(text: String) {
+            ui.post {
+                val cm = getSystemService(android.content.ClipboardManager::class.java)
+                cm.setPrimaryClip(android.content.ClipData.newPlainText("text", text))
+            }
+        }
+
+        /** 월요일 아침 요점 알림 켜기/끄기 + 사장님 상황 저장 */
+        @JavascriptInterface
+        fun setDigest(on: Boolean, ctx: String) {
+            getSharedPreferences("app", MODE_PRIVATE).edit().putString("digestCtx", ctx).apply()
+            DigestWorker.schedule(this@MainActivity, on)
+            if (on && Build.VERSION.SDK_INT >= 33 &&
+                ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                ui.post { notifPermission.launch(Manifest.permission.POST_NOTIFICATIONS) }
+            }
+        }
+
+        @JavascriptInterface
+        fun getDigests(): String = getSharedPreferences("app", MODE_PRIVATE).getString("digests", "[]") ?: "[]"
+
+        @JavascriptInterface
+        fun digestNow() { DigestWorker.now(this@MainActivity); toast("이번 주 요점을 만들고 있어요. 1~2분 뒤 알림이 와요") }
 
         @JavascriptInterface
         fun setKey(k: String) { getSharedPreferences("app", MODE_PRIVATE).edit().putString("key", k.trim()).apply() }
