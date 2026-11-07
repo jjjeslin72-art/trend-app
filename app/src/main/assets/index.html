@@ -269,29 +269,30 @@ items 각각: {"name":"가게 이름","instagram":"@계정 (확인된 것만, �
     const base=head+`\n2027년 브라질 시즌: 2027 가을겨울(3~8월), 2027/28 봄여름(9월~2028년 2월). 세계 흐름(유럽·미국·아시아·쉐인 같은 중국 대형 쇼핑몰)과 브라질 전망이 다를 때는 꼭 짚어서 (예: 세계는 리넨이 뜨지만 브라질에서는 값과 날씨 때문에 시폰·비스코스가 뜰 것).
 사장님 경험: 세계에서 유행하는 색(예: 보라)이라도 브라질에서는 유행하지 않는 경우가 많다. 브라질에는 늘 기본으로 나가는 색이 있고, 그것과 별개로 그 해에 유행하는 색이 따로 있다. 그래서 가장 중요한 근거는 브라질 원단 회사(tecelagem·malharia·원단 수입·도매상, 브라스·봉헤치로 원단 가게)가 실제로 들여오는 원단과 색, 그리고 브라질 매장·쇼핑몰에서 실제로 팔리는 것이다. 세계 자료는 참고만.
 트렌드 예측 기관(WGSN, Pantone, Première Vision, 브라질 SPFW·Abit·Texbrasil 등) 자료와 쇼핑몰 판매 흐름을 근거로.
+[글쓰기 규칙 — 꼭 지켜] 사장님은 길게 늘어진 설명을 싫어함. 모든 칸은 문장으로 서술하지 말고 단답식 짧은 구절로 (한 칸 15자 안팎, 예: "세계: 리넨 강세", "브라질: 비스코스 우세 — 싸고 시원함"). 접속사·꾸밈말 빼고 핵심만. 원단 이름은 봉헤치로에서 부르는 포르투갈어 그대로 쓰고 한국어로 번역하지 마 (예: Viscose, Linho, Crepe, Tricoline, Malha canelada).
 ${ctx?'[사장님이 이미 조사해 둔 리포트에서 많이 나온 것]\n'+ctx+'\n':''}`;
     const out=`items 각각에 "confidence":0~100 (이 전망이 맞을 확률 — 브라질 원단 회사 발표·판매 자료처럼 확실한 근거가 여러 개면 높게, 세계 유행만 보고 짐작했으면 50 이하)와 "evidence":"근거가 된 자료 한 줄 (예: Vicunha 2027 컬렉션 발표, Shein 브라질 판매 순위)"도 꼭 넣어.
-답은 설명 없이 JSON 하나만: {"summary":"전체 전망 요약 (한국어 3~4문장)","note":"","items":[...]}  지어내지 말고 근거 있는 것만.`;
+답은 설명 없이 JSON 하나만: {"summary":"핵심 3줄 (줄마다 20자 안팎, 줄바꿈 \\n으로 구분, 문장 말고 단답)","note":"","items":[...]}  지어내지 말고 근거 있는 것만.`;
     if(sec==='fabric')return base+`\n[할 일] 2027년에 쓸 원단 TOP 5를 골라 (1위부터 순서대로). 브라질 봉헤치로 도매에서 실제로 쓸 수 있는 원단으로.
-items 각각: {"name":"원단 이름(한국어)","namePt":"봉헤치로 원단 가게에서 부르는 포르투갈어 이름","world":"세계 흐름 한두 줄","outlook":"브라질 전망 한두 줄 (세계와 다르면 왜 다른지)","use":["어울리는 옷 종류"],"season":"어느 시즌에 강한지","price":"봉헤치로 대략 가격대 (미터당 R$, 확실치 않으면 '추정')","brazil":{"score":0~100,"why":"브라질에서 뜰 가능성 이유"},"url":"근거 자료 주소(확인된 것만)"}\n`+out;
+items 각각: {"name":"원단 이름 (봉헤치로에서 부르는 포르투갈어 그대로, 예: Viscose sarja)","namePt":"name과 같게","world":"세계 흐름 단답 (15자 안팎)","outlook":"브라질 전망 단답 (20자 안팎, 세계와 다르면 이유 한 마디)","use":["어울리는 옷 종류"],"season":"어느 시즌에 강한지","price":"봉헤치로 대략 가격대 (미터당 R$, 확실치 않으면 '추정')","brazil":{"score":0~100,"why":"이유 단답 (15자 안팎)"},"url":"근거 자료 주소(확인된 것만)"}\n`+out;
     if(sec==='color')return base+`\n[할 일] 브라질 여성복 색을 세 그룹으로 정리해:
 (1) group "base": 브라질에서 해마다 늘 기본으로 나가는 색 5개 (많이 팔리는 순)
 (2) group "trend": 2027년 브라질에서 유행할 색 ${rep.ncolors||7}개 (기본색과 겹치지 않게, 가능성 높은 순) — 브라질 원단 회사들이 들여오는 색을 근거로
 (3) group "worldOnly": 세계에서는 유행하지만 브라질에서는 안 뜰 것 같은 색 2~3개와 그 이유
-items 각각: {"group":"base 또는 trend 또는 worldOnly","name":"색 이름(한국어)","namePt":"포르투갈어 색 이름","hex":"#RRGGBB (그 색에 가장 가까운 값)","world":"세계 흐름 한두 줄","outlook":"브라질 전망 한두 줄","use":["어울리는 옷 종류"],"fabric":"이 색에 어울리는 원단","pairs":["같이 쓰면 좋은 색"],"brazil":{"score":0~100,"why":"이유"},"url":"근거 자료 주소(확인된 것만)"}\n`+out;
+items 각각: {"group":"base 또는 trend 또는 worldOnly","name":"색 이름(한국어)","namePt":"포르투갈어 색 이름","hex":"#RRGGBB (그 색에 가장 가까운 값)","world":"세계 흐름 단답 (15자 안팎)","outlook":"브라질 전망 단답 (20자 안팎)","use":["어울리는 옷 종류"],"fabric":"이 색에 어울리는 원단 (포르투갈어 이름)","pairs":["같이 쓰면 좋은 색"],"brazil":{"score":0~100,"why":"이유 단답 (15자 안팎)"},"url":"근거 자료 주소(확인된 것만)"}\n`+out;
     if(sec==='mills')return base+`\n[할 일] 브라질 원단 회사·원단 도매상들이 2027년(2027 가을겨울, 2027/28 봄여름) 컬렉션으로 들여오거나 밀고 있는 원단과 색을 조사해. 찾을 곳: 대형 tecelagem·malharia의 새 컬렉션 발표, 원단 박람회(Febratex, Première Vision 상파울루 등), Senai Cetiqt·Abit·Texbrasil 트렌드 자료, 브라스·봉헤치로 원단 가게 인스타그램 신상. 회사(또는 자료) 8~10개.
-items 각각: {"name":"회사·가게·자료 이름","where":"도시·종류 (예: 산타카타리나 니트 원단 회사 / 브라스 원단 도매상)","fabrics":["밀고 있는 원단"],"colors":["밀고 있는 색"],"note":"요점 한두 줄 (한국어)","url":"근거 주소(확인된 것만)","instagram":"@계정(확인된 것만)"}\n`+out;
+items 각각: {"name":"회사·가게·자료 이름","where":"도시·종류 (예: 산타카타리나 니트 원단 회사 / 브라스 원단 도매상)","fabrics":["밀고 있는 원단 (포르투갈어)"],"colors":["밀고 있는 색"],"note":"요점 단답 (20자 안팎)","url":"근거 주소(확인된 것만)","instagram":"@계정(확인된 것만)"}\n`+out;
     if(sec==='brief'){const dig=forecastDigest(rep);
       return base+`\n[할 일] 아래 조사 결과를 모아서 봉헤치로 도매 사장님이 바로 쓸 "2027 요점 정리"를 만들어. 짧고 실용적으로. 사장님 판매 경험에서 '안 팔리는 것'은 절대 추천하지 말고, '잘 팔리는 것'을 중심으로 그걸 어떻게 새롭게 바꿀지(색·디테일·핏)를 제안해. 세계 유행이라도 사장님 경험과 다르면 '피할 것'에 넣어.
 ${dig}
-답은 JSON 하나만: {"summary":"한 문단 요약 (3문장)","note":"","items":[
+답은 JSON 하나만: {"summary":"핵심 3줄 (줄마다 20자 안팎, 줄바꿈 \\n으로 구분, 문장 말고 단답)","note":"","items":[
  {"title":"지금 바로 만들 것 (2026/27 여름 남은 기간)","points":["..."]},
  {"title":"2027 가을겨울 준비","points":["..."]},
  {"title":"2027/28 여름 준비","points":["..."]},
- {"title":"원단 TOP 5","points":["원단 — 이유"]},
+ {"title":"원단 TOP 5","points":["Viscose — 싸고 시원함 (포르투갈어 원단명 — 이유 단답)"]},
  {"title":"색: 기본색 + 유행색","points":["..."]},
  {"title":"피할 것 (세계 유행이지만 브라질은 아님)","points":["..."]},
- {"title":"이번 주에 할 일","points":["원단 가게에 물어볼 것 등"]}]}  각 points는 3~5줄, 한 줄은 짧게.
+ {"title":"이번 주에 할 일","points":["원단 가게에 물어볼 것 등"]}]}  각 points는 3~5줄, 한 줄은 단답식 10~20자 (예: "와이드 팬츠 — Viscose 오프화이트"), 문장으로 길게 쓰지 마.
 각 items에 "confidence":0~100 (그 칸 내용이 맞을 확률, 근거가 약하면 낮게)도 넣어.`;}
     return base+`\n[할 일] 2027년 브라질에서 뜰 여성복 아이템·실루엣 TOP 10 (예: 와이드 팬츠, 코르셋 탑, 드레이프 원피스). name은 아이템 이름(한국어), url·img는 그 아이템 예시 상품 페이지(확인된 것만).\n\n`+ITEM_SPEC+'\n\n'+OUT_RULE_T();}
   return '';
@@ -953,13 +954,13 @@ function briefPics(rep){
   if(items.length)h+=`<div class="bh">👗 2027 아이템</div><div class="bstrip">${items.map(x=>tile(x.imgs[0],x.name)).join('')}</div>`;
   const ct=cols.filter(x=>x.fimgs&&x.fimgs[0]);
   if(cols.length)h+=`<div class="bh">🎨 색 (기본색 + 유행색)</div><div class="bstrip">${cols.map(x=>x.fimgs&&x.fimgs[0]?tile(x.fimgs[0],x.name,`<span class="dot" style="background:${hex(x.hex)}"></span>${x.group==='base'?'기본':'유행'}`):`<div class="bp"><div class="bpi" style="background:${hex(x.hex)}"></div><div class="bpl">${esc(x.name)}</div></div>`).join('')}</div>`;
-  if(fabs.length)h+=`<div class="bh">🧵 원단 TOP 5</div><div class="bstrip">${fabs.map((x,i)=>x.fimgs&&x.fimgs[0]?tile(x.fimgs[0],(i+1)+'. '+x.name,esc(x.namePt||'')):`<div class="bp"><div class="bpi load"></div><div class="bpl">${esc((i+1)+'. '+x.name)}</div></div>`).join('')}</div>`;
+  if(fabs.length)h+=`<div class="bh">🧵 원단 TOP 5</div><div class="bstrip">${fabs.map((x,i)=>x.fimgs&&x.fimgs[0]?tile(x.fimgs[0],(i+1)+'. '+(x.namePt||x.name),''):`<div class="bp"><div class="bpi load"></div><div class="bpl">${esc((i+1)+'. '+(x.namePt||x.name))}</div></div>`).join('')}</div>`;
   return h?`<div class="card bpics">${h}<div class="muted" style="margin-top:6px">사진은 인터넷 검색 예시예요 · 누르면 크게</div></div>`:'';
 }
 function briefHTML(sec){
   const sh=getShop();const mine=[['good','👍 잘 팔리는 것'],['bad','👎 안 팔리는 것']].filter(([k])=>sh[k]);
   return `${mine.length?`<div class="fc" style="border-color:var(--ok);background:#F2FAF5"><div class="nm">🏪 사장님 판매 경험 (가장 확실한 기준)</div>${mine.map(([k,t])=>`<div class="ln"><b>${t}</b> ${esc(sh[k])}</div>`).join('')}<div class="muted" style="margin-top:6px">아래 예측이 이 내용과 다르면 이게 맞아요</div></div>`:''}
-  ${sec.summary?`<div class="sum" style="font-size:15px"><b>📝 한눈에</b><br>${esc(sec.summary)}</div>`:''}
+  ${sec.summary?`<div class="sum" style="font-size:15px"><b>📝 한눈에</b><br>${esc(sec.summary).replace(/\n/g,'<br>')}</div>`:''}
   ${(sec.items||[]).map(x=>`<div class="fc"><div class="nm">${esc(x.title||x.name)}${x.confidence?` <span class="bd ${trustCls(+x.confidence)}" style="font-size:12px;vertical-align:2px">${esc(x.confidence)}%</span>`:''}</div>
     ${(x.points||[]).map(p=>`<div class="ln">• ${esc(p)}</div>`).join('')}</div>`).join('')}
   <button class="btn ghost big" data-act="retrysec" data-v="brief">↻ 요점 정리 다시 만들기</button>
@@ -983,7 +984,7 @@ function colorHTML(rep,sec,meta){
   const it=sec.items||[];
   const groups=[['base','✅ 브라질 기본색','해마다 늘 나가는 색'],['trend','🔥 2027 브라질 유행색','기본색 말고 새로 뜰 색'],['worldOnly','🚫 세계 유행, 브라질은 아님','따라 만들면 위험한 색']];
   const known=new Set(groups.map(g=>g[0]));
-  return `${sec.summary?`<div class="sum">${esc(sec.summary)}</div>`:''}`+groups.map(([g,t,d])=>{
+  return `${sec.summary?`<div class="sum">${esc(sec.summary).replace(/\n/g,'<br>')}</div>`:''}`+groups.map(([g,t,d])=>{
     const xs=it.filter(x=>(x.group||'trend')===g||(g==='trend'&&!known.has(x.group)));if(!xs.length)return '';
     return `<h2>${t} <span class="muted">${d}</span></h2>`+forecastHTML(rep,'color',{items:xs},{long:''},true);}).join('');
 }
@@ -992,10 +993,10 @@ function forecastHTML(rep,id,sec,meta,bare){
   const hex=h=>/^#?[0-9a-f]{6}$/i.test(String(h||'').trim())?('#'+String(h).trim().replace('#','')):'#ddd';
   return `${bare?'':`<div class="muted" style="margin-bottom:8px">${esc(meta.long)}</div>`}
   ${id==='color'&&it.length?`<div class="pal">${it.map(x=>`<div style="background:${hex(x.hex)}"></div>`).join('')}</div>`:''}
-  ${!bare&&sec.summary?`<div class="sum">${esc(sec.summary)}</div>`:''}${!bare&&sec.note?`<div class="note">📌 ${esc(sec.note)}</div>`:''}
+  ${!bare&&sec.summary?`<div class="sum">${esc(sec.summary).replace(/\n/g,'<br>')}</div>`:''}${!bare&&sec.note?`<div class="note">📌 ${esc(sec.note)}</div>`:''}
   ${it.map((x,i)=>{const sc=(x.brazil||{}).score;return `<div class="fc">
     <div class="hd"><div class="sw" style="${id==='color'?'background:'+hex(x.hex):''}">${id==='color'?'':'🧵'}</div>
-      <div style="flex:1;min-width:0"><div class="rk">${i+1}위</div><div class="nm">${esc(x.name)}</div><div class="muted">${esc(x.namePt||'')}${id==='color'&&x.hex?' · '+esc(x.hex):''}</div></div>
+      <div style="flex:1;min-width:0"><div class="rk">${i+1}위</div><div class="nm">${esc(id==='fabric'?(x.namePt||x.name):x.name)}</div><div class="muted">${id==='fabric'?'':esc(x.namePt||'')}${id==='color'&&x.hex?' · '+esc(x.hex):''}</div></div>
       ${sc!=null&&sc!==''?`<span class="bd ${scoreCls(sc)}" style="font-size:13px">🇧🇷 ${esc(sc)}</span>`:''}</div>
     ${x.fimg===2?stripHTML(x.fimgs):x.fimg===1?'<div class="fstrip load"><i></i><i></i><i></i></div>':''}
     ${x.world?`<div class="ln"><b>🌍 세계</b> ${esc(x.world)}</div>`:''}
