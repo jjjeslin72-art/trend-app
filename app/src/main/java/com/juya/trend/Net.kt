@@ -23,8 +23,8 @@ object Net {
         repeat(7) {
             val c = URL(u).openConnection() as HttpURLConnection
             c.instanceFollowRedirects = false
-            c.connectTimeout = 12000
-            c.readTimeout = 20000
+            c.connectTimeout = 8000
+            c.readTimeout = 12000
             val host = URL(u).host.lowercase()
             val preview = host.contains("instagram.com") || host.contains("facebook.com") || host.contains("threads.net")
             c.setRequestProperty("User-Agent", if (preview) UA_PREVIEW else UA_MOBILE)
@@ -71,15 +71,24 @@ object Net {
         return r.bytes to type
     }
 
+    private val badTries = java.util.Collections.synchronizedSet(HashSet<Int>())
+
     /** 구글 AI(Gemini) + 구글 검색. 답 글자와 출처 목록을 돌려줌 */
     fun gemini(key: String, prompt: String, search: Boolean = true): Pair<String, JSONArray> {
         var last = "AI"
-        for (model in listOf("gemini-flash-latest", "gemini-2.5-flash", "gemini-2.5-flash-lite")) {
+        val tries = listOf(
+            "gemini-flash-latest" to JSONObject().put("thinkingLevel", "low"),
+            "gemini-flash-latest" to null,
+            "gemini-2.5-flash" to JSONObject().put("thinkingBudget", 512),
+            "gemini-2.5-flash-lite" to null)
+        for ((idx, t) in tries.withIndex()) {
+            val (model, thinking) = t
+            if (badTries.contains(idx)) continue
             try {
                 val body = JSONObject()
                     .put("contents", JSONArray().put(JSONObject().put("role", "user")
                         .put("parts", JSONArray().put(JSONObject().put("text", prompt)))))
-                    .put("generationConfig", JSONObject().put("temperature", 0.3))
+                    .put("generationConfig", JSONObject().put("temperature", 0.3).apply { if (thinking != null) put("thinkingConfig", thinking) })
                 if (search) body.put("tools", JSONArray().put(JSONObject().put("google_search", JSONObject())))
                 val c = URL("https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent")
                     .openConnection() as HttpURLConnection
@@ -96,6 +105,7 @@ object Net {
                 if (code !in 200..299) {
                     val msg = try { JSONObject(txt).optJSONObject("error")?.optString("message") ?: "" } catch (_: Exception) { "" }
                     if (code == 400 && msg.contains("API key", true)) throw IllegalStateException("BADKEY")
+                    if (code == 404 || (code == 400 && msg.contains("thinking", true))) badTries.add(idx)   // 이 모델·설정은 안 됨 → 다음부터 건너뜀
                     last = if (msg.contains("billing", true) || msg.contains("FAILED_PRECONDITION")) "구글 AI 결제(카드) 연결이 필요해요"
                            else if (code == 429) "구글 AI 사용량이 잠깐 많아요. 조금 뒤에 다시 해 주세요"
                            else msg.ifBlank { "http $code" }

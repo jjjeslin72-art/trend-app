@@ -171,7 +171,9 @@ class MainActivity : ComponentActivity() {
             if(ss){ var best=ss.split(',').map(function(x){x=x.trim().split(/\s+/);return {u:x[0],w:parseInt(x[1]||'0',10)};}).sort(function(a,b){return b.w-a.w;})[0]; if(best&&best.w>=400){add(best.u);return;} }
             if(src&&w>=350)add(src);
           });
-          return JSON.stringify(out.slice(0,14));
+          var h1=document.querySelector('h1');
+          var ogt=document.querySelector('meta[property="og:title"]');
+          return JSON.stringify({imgs:out.slice(0,20),title:document.title||'',og:ogt?ogt.content:'',h1:h1?h1.innerText:'',text:(document.body?document.body.innerText:'').slice(0,30000)});
         })()
     """.trimIndent()
 
@@ -195,8 +197,8 @@ class MainActivity : ComponentActivity() {
             override fun onPageFinished(view: WebView, u: String) {
                 view.evaluateJavascript("window.scrollTo(0,900)", null)
                 ui.postDelayed({
-                    if (!done) view.evaluateJavascript(extractJs) { r -> finish(if (r.isNullOrBlank() || r == "null") "\"[]\"" else r) }
-                }, 3000)
+                    if (!done) view.evaluateJavascript(extractJs) { r -> finish(if (r.isNullOrBlank() || r == "null") "\"{}\"" else r) }
+                }, 1500)
             }
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest) =
                 !(request.url.scheme ?: "").startsWith("http")
@@ -204,7 +206,7 @@ class MainActivity : ComponentActivity() {
         // 화면 뒤에 숨겨서 염 (보이지 않음)
         root.addView(w, 0, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
         w.loadUrl(url)
-        ui.postDelayed({ finish("\"[]\"") }, 22000)
+        ui.postDelayed({ finish("\"{}\"") }, 14000)
     }
 
     /** 사진을 파일로 받아 두기 (공유·저장용) */

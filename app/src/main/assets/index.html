@@ -205,7 +205,8 @@ const ITEM_SPEC=`각 모델(items)마다 아래 칸을 채워:
  "price":"현지 판매가 (통화 표시, 모르면 빈칸)",
  "countries":["이 모델이 나온 나라 (한국어 나라 이름)"],
  "brazil":{"score":0~100,"why":"브라질에서 팔릴 가능성 이유 한두 줄"},
- "url":"이 상품의 공식 상품 페이지나 인스타 게시물 주소 — 검색에서 실제로 확인한 주소만, 모르면 빈칸",
+ "url":"바로 이 상품의 공식 상품 페이지 주소 (다른 상품 페이지·목록 페이지 주소를 넣으면 안 됨) — 검색에서 실제로 확인한 주소만, 모르면 빈칸",
+ "confidence":0~100,  (이 모델 정보가 맞을 확률: 공식 상품 페이지에서 이름·원단·가격을 직접 확인했으면 85 이상, 기사·리뷰로 확인 60~80, 추측이면 50 이하)
  "img":"상품 사진 파일 주소를 확실히 알면 (모르면 빈칸)",
  "video":"이 모델이 나오는 유튜브 영상 주소가 있으면 (없으면 빈칸)"}
 브라질 점수 기준: 상파울루 날씨(곧 여름, 12~3월 덥고 습함), 브라질 여성 체형·취향(몸매를 살리는 핏, 밝은 색, 시원한 원단), 봉헤치로 도매가(약 R$30~180)로 만들 수 있는지, 브라질에서 이미 비슷한 게 많이 팔리는지.`;
@@ -219,7 +220,7 @@ const PEOPLE_SPEC=`각 의상(items)마다 아래 칸을 채워:
  "desc":"어떤 옷차림인지 한국어 한 줄 (아이템 조합·디테일)","brands":["입은 브랜드 (알면)"],"colors":["색 (한국어)"],
  "fabric":"원단 (보이는 대로 추측)","fabricGuess":true,"fabricPt":"봉헤치로 원단 이름 (포르투갈어)","fit":"핏","price":"",
  "countries":[],"brazil":{"score":0~100,"why":"브라질에서 비슷하게 만들어 팔 수 있을지"},
- "url":"그 의상이 나온 인스타 게시물이나 기사 주소 — 검색에서 확인한 것만, 모르면 빈칸","img":"사진 주소를 확실히 알면","video":"관련 유튜브 영상 주소 (없으면 빈칸)"}`;
+ "url":"그 의상이 나온 인스타 게시물이나 기사 주소 — 검색에서 확인한 것만, 모르면 빈칸","confidence":0~100,"img":"사진 주소를 확실히 알면","video":"관련 유튜브 영상 주소 (없으면 빈칸)"}`;
 function specialPrompt(rep,sec){
   const head=`너는 브라질 상파울루 봉헤치로에서 14년째 여성복을 생산·도매하는 한국인 사장님을 돕는 패션 트렌드 리서처야. 오늘 날짜: ${today()}. 반드시 구글 검색으로 최신 자료를 찾아.`;
   if(rep.kind==='shows'){const nm=(SHOWS.find(x=>x[0]===sec)||[sec,sec])[1].replace(/^\S+\s/,'');
@@ -515,10 +516,13 @@ function errMsg(e){const m=(e&&e.message)||String(e);
 
 /* ---------- 사진 찾기 (상품 페이지에서 앞·뒤·디테일 사진 모으기) ---------- */
 const renderWait={};
-window.__rendered=(id,json)=>{const f=renderWait[id];if(!f)return;delete renderWait[id];let a=[];try{a=JSON.parse(json);}catch(e){}f(Array.isArray(a)?a:[]);};
+window.__rendered=(id,json)=>{const f=renderWait[id];if(!f)return;delete renderWait[id];rendering=Math.max(0,rendering-1);const nx=renderQ.shift();if(nx)setTimeout(nx,0);let a={};try{a=JSON.parse(json);}catch(e){}f(Array.isArray(a)?{imgs:a}:(a||{}));};
+let rendering=0;const renderQ=[];
 function renderPage(url){
-  if(!AB||!AB.render)return Promise.resolve([]);
-  return new Promise(res=>{const id='r'+Math.random().toString(36).slice(2);renderWait[id]=res;AB.render(id,url);setTimeout(()=>{if(renderWait[id]){delete renderWait[id];res([]);}},26000);});
+  if(!AB||!AB.render)return Promise.resolve({});
+  if(rendering>=2)return new Promise(r=>renderQ.push(()=>renderPage(url).then(r)));
+  rendering++;
+  return new Promise(res=>{const id='r'+Math.random().toString(36).slice(2);renderWait[id]=res;AB.render(id,url);setTimeout(()=>{if(renderWait[id]){delete renderWait[id];rendering=Math.max(0,rendering-1);const nx=renderQ.shift();if(nx)setTimeout(nx,0);res({});}},16000);});
 }
 const BAD_IMG=/\.svg(\?|$)|logo|icon|sprite|pixel|blank|transparent|placeholder|favicon|avatar|badge|flag/i;
 function imgsFromHtml(html,base){
@@ -539,6 +543,97 @@ function imgsFromHtml(html,base){
   });
   return out.slice(0,14);
 }
+/* ---- 이름과 페이지가 맞는지 검사 ---- */
+const deacc=t=>String(t||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+const STOP=new Set(['com','de','da','do','das','dos','e','em','the','and','with','for','women','womens','feminino','feminina','new','de','la','el','con','y','para']);
+function nameTokens(n){return deacc(n).split(/[^a-z0-9\uac00-\ud7a3]+/).filter(t=>t.length>=3&&!STOP.has(t));}
+function matchRatio(name,hay){const tk=nameTokens(name);if(!tk.length)return 0;const h=deacc(hay);return tk.filter(t=>h.includes(t)).length/tk.length;}
+function slugify(n){return deacc(n).replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');}
+function pageInfo(html,base){
+  let doc;try{doc=new DOMParser().parseFromString(html,'text/html');}catch(e){return null;}
+  const meta=sel=>{const m=doc.querySelector(sel);return m?(m.getAttribute('content')||''):'';};
+  const h1=doc.querySelector('h1');
+  const info={title:doc.title||'',og:meta('meta[property="og:title"]'),h1:h1?h1.textContent.trim():'',text:'',ld:[],ogimg:[],imgs:[]};
+  const add=(arr,u)=>{if(!u||typeof u!=='string')return;u=u.replace(/&amp;/g,'&').trim();try{u=new URL(u,base).href;}catch(e){return;}if(/^https?:/.test(u)&&!BAD_IMG.test(u)&&!arr.includes(u))arr.push(u);};
+  ['meta[property="og:image"]','meta[name="og:image"]','meta[property="og:image:secure_url"]','meta[name="twitter:image"]'].forEach(q=>doc.querySelectorAll(q).forEach(m=>add(info.ogimg,m.getAttribute('content'))));
+  // JSON-LD: 상품(Product) 정보의 사진만
+  const prods=[];const walk=o=>{if(!o)return;if(Array.isArray(o)){o.forEach(walk);return;}if(typeof o!=='object')return;
+    const t=[].concat(o['@type']||[]).join(',');if(/Product/i.test(t))prods.push(o);for(const k in o)if(typeof o[k]==='object')walk(o[k]);};
+  doc.querySelectorAll('script[type="application/ld+json"]').forEach(s=>{try{walk(JSON.parse(s.textContent));}catch(e){}});
+  info.prods=prods.map(p=>({name:p.name||'',imgs:[].concat(p.image||[]).map(x=>typeof x==='string'?x:(x&&(x.url||x.contentUrl))).filter(Boolean)}));
+  // 상품 사진 (alt에 상품 이름이 있는 것)
+  doc.querySelectorAll('img').forEach(im=>{
+    const ss=im.getAttribute('srcset')||im.getAttribute('data-srcset');let src=im.getAttribute('data-src')||im.getAttribute('src');
+    if(ss){const best=ss.split(',').map(x=>{x=x.trim().split(/\s+/);return{u:x[0],w:parseInt(x[1]||'0',10)};}).sort((a,b)=>b.w-a.w)[0];if(best)src=best.u;}
+    if(src&&!/^data:/.test(src))info.imgs.push({u:src,alt:im.getAttribute('alt')||''});});
+  info.text=(doc.body?doc.body.textContent:'').replace(/\s+/g,' ').slice(0,40000);
+  return info;
+}
+function pickImages(info,name,base){
+  const out=[];const add=u=>{if(!u)return;try{u=new URL(u,base).href;}catch(e){return;}if(/^https?:/.test(u)&&!BAD_IMG.test(u)&&!out.includes(u))out.push(u);};
+  // 1) 이름이 맞는 상품 정보의 사진
+  const p=(info.prods||[]).map(p=>({p,r:matchRatio(name,p.name)})).sort((a,b)=>b.r-a.r)[0];
+  if(p&&(p.r>=0.5||(info.prods.length===1)))p.p.imgs.forEach(add);
+  // 2) 대표 사진
+  (info.ogimg||[]).forEach(add);
+  // 3) 사진 설명(alt)에 상품 이름이 들어간 사진만 (추천 상품 사진은 빼기)
+  if(out.length<4)(info.imgs||[]).forEach(x=>{if(x.alt&&matchRatio(name,x.alt)>=0.6)add(x.u);});
+  return out.slice(0,10);
+}
+function fabricCheck(fabric,text){
+  const nums=String(fabric||'').match(/\d+(?:[.,]\d+)?\s*%/g)||[];if(!nums.length)return false;
+  const t=String(text||'').replace(/\s+/g,'');
+  return nums.every(n=>{const v=n.replace(/\s|%/g,'');return t.includes(v+'%')||t.includes(v.replace('.',',')+'%')||t.includes(v.replace(',','.')+'%');});
+}
+async function fetchInfo(url){
+  try{const r=await fetch('/fetch?u='+encodeURIComponent(url));const d=await r.json();
+    if(!d.html||d.status>=400)return null;const info=pageInfo(d.html,d.url||url);if(info)info.url=d.url||url;return info;}catch(e){return null;}
+}
+/* 상품 페이지가 이 이름의 상품인지 확인하고, 그 상품 사진만 가져옴 */
+async function checkItem(it){
+  const res={imgs:[],verify:'nopage',fabricOk:false,page:''};
+  if(!AB)return res;
+  const tryUrl=async u=>{
+    let info=await fetchInfo(u);
+    let ratio=info?Math.max(matchRatio(it.name,info.title+' '+info.og+' '+info.h1),matchRatio(it.name,decodeURIComponent(info.url||u).replace(/[-_/]/g,' '))):0;
+    let imgs=info?pickImages(info,it.name,info.url):[];
+    if(!info||(ratio>=0.6&&imgs.length<1)){ // 글자로 안 나오면 보이지 않는 브라우저로 열어 보기
+      const rd=await renderPage(info&&info.url||u);
+      if(rd&&(rd.title||rd.h1||rd.og)){const r2=matchRatio(it.name,(rd.title||'')+' '+(rd.og||'')+' '+(rd.h1||''));
+        if(!info||r2>ratio){ratio=Math.max(ratio,r2);info=info||{text:'',url:u};info.text=(info.text||'')+' '+(rd.text||'');}
+        if(ratio>=0.6&&imgs.length<1)imgs=(rd.imgs||[]).slice(0,4);}
+    }
+    return {info,ratio,imgs};
+  };
+  if(it.url&&/^https?:/.test(it.url)){
+    let r=await tryUrl(it.url);
+    // 다른 상품 페이지면: 같은 사이트에서 이름으로 된 주소를 짐작해서 다시 시도
+    if(r.ratio<0.6){
+      let origin='';try{origin=new URL(r.info&&r.info.url||it.url).origin;}catch(e){}
+      const sl=slugify(it.name);
+      if(origin&&sl){const gs=[`${origin}/${sl}/p`,`${origin}/products/${sl}`,`${origin}/produto/${sl}`];
+        const rs=await Promise.all(gs.map(g=>fetchInfo(g).then(info=>({g,info,ratio:info?matchRatio(it.name,info.title+' '+info.og+' '+info.h1):0}))));
+        const best=rs.sort((a,b)=>b.ratio-a.ratio)[0];
+        if(best&&best.ratio>=0.6){r={info:best.info,ratio:best.ratio,imgs:pickImages(best.info,it.name,best.info.url)};it.url=best.info.url||best.g;}}
+    }
+    if(r.info){res.page=r.info.url||it.url;
+      if(r.ratio>=0.6){res.verify='ok';res.imgs=r.imgs;res.fabricOk=fabricCheck(it.fabric,r.info.text);}
+      else res.verify='mismatch';}
+  }
+  // 사진 주소를 AI가 직접 준 경우: 페이지 확인이 안 됐으면 쓰지 않음
+  if(it.img&&/^https?:/.test(it.img)&&res.verify==='ok'&&!res.imgs.includes(it.img))res.imgs.push(it.img);
+  if(!res.imgs.length&&res.verify!=='mismatch'&&ytId(it.video))res.imgs.push(`https://i.ytimg.com/vi/${ytId(it.video)}/hqdefault.jpg`);
+  return res;
+}
+/* 신뢰도 % = AI 확신 + 실제 확인 결과 */
+function trust(x){
+  if(x.imgState!==2||!x.verify)return null;
+  const ai=Math.max(0,Math.min(100,+(x.confidence)||60));
+  let t=ai*0.5+(x.verify==='ok'?35:x.verify==='nopage'?10:0)+(x.fabricOk?15:x.fabricGuess?0:5);
+  if(x.verify==='mismatch')t=Math.min(t,40);
+  return Math.max(5,Math.min(99,Math.round(t)));
+}
+const trustCls=t=>t>=75?'g':t>=50?'m':'r';
 async function pageImages(url){
   if(!AB||!/^https?:/.test(url||''))return [];
   let list=[];
@@ -551,20 +646,17 @@ async function pageImages(url){
 function ytId(u){const m=String(u||'').match(/(?:v=|youtu\.be\/|shorts\/|embed\/)([\w-]{11})/);return m?m[1]:'';}
 let imgPool=0;const imgQueue=[];
 function queueImg(job){imgQueue.push(job);pump();}
-function pump(){while(imgPool<3&&imgQueue.length){const j=imgQueue.shift();imgPool++;j().finally(()=>{imgPool--;pump();});}}
+function pump(){while(imgPool<6&&imgQueue.length){const j=imgQueue.shift();imgPool++;j().finally(()=>{imgPool--;pump();});}}
 function fillImages(rep,secId){
   const sec=rep.sections[secId];if(!sec||!sec.items)return;
   sec.items.forEach((it,i)=>{
-    if(it.imgState===2)return;
+    if(it.imgState===2&&it.verify)return;
     it.imgState=1;
     queueImg(async()=>{
-      let list=[];
-      if(it.img&&/^https?:/.test(it.img))list.push(it.img);
-      if(it.url){for(const u of await pageImages(it.url))if(!list.includes(u))list.push(u);}
-      if(!list.length&&ytId(it.video))list.push(`https://i.ytimg.com/vi/${ytId(it.video)}/hqdefault.jpg`);
-      it.imgs=list;it.imgState=2;
+      const r=await checkItem(it);const list=r.imgs;
+      it.imgs=list;it.imgState=2;it.verify=r.verify;it.fabricOk=r.fabricOk;it.page=r.page;
       saveRep(rep);
-      if(S.rep===rep.key)updateCard(secId,i,list);
+      if(S.rep===rep.key&&S.sec===secId&&S.view==='report'&&!S.detail)render();
       if(S.detail&&S.detail.sec===secId&&S.detail.i===i&&S.rep===rep.key)render();
     });
   });
@@ -646,6 +738,7 @@ function scoreCls(s){s=+s||0;return s>=75?'g':s>=50?'m':'r';}
 function sortedItems(sec){
   const it=(sec.items||[]).map((x,i)=>({x,i}));
   if(S.sort==='score')it.sort((a,b)=>((b.x.brazil||{}).score||0)-((a.x.brazil||{}).score||0));
+  if(S.sort==='trust')it.sort((a,b)=>(trust(b.x)||0)-(trust(a.x)||0));
   if(S.sort==='countries')it.sort((a,b)=>(b.x.countries||[]).length-(a.x.countries||[]).length);
   if(S.sort==='type')it.sort((a,b)=>String(a.x.type).localeCompare(String(b.x.type),'ko'));
   return it;
@@ -678,8 +771,8 @@ function reportHTML(){
       const items=sortedItems(sec);
       body=`<div class="muted" style="margin-bottom:8px">${meta.long}${S.sec==='newin'&&rep.kind!=='people'?' · '+(rep.countries||[]).map(cName).join(', '):''}</div>
       ${sec.summary?`<div class="sum">${esc(sec.summary)}</div>`:''}${sec.note?`<div class="note">📌 ${esc(sec.note)}</div>`:''}
-      <div class="row" style="justify-content:space-between;margin-bottom:10px"><span class="muted">${items.length}개 · 눌러서 자세히</span>
-      <select class="sel" id="sortSel"><option value="base">기본 순서</option><option value="score">🇧🇷 브라질 점수순</option><option value="countries">🌍 나라 많은 순</option><option value="type">종류별</option></select></div>
+      <div class="row" style="justify-content:space-between;margin-bottom:10px"><span class="muted">${items.length}개${(()=>{const ts=items.map(o=>trust(o.x)).filter(t=>t!=null);return ts.length?` · 평균 신뢰도 ${Math.round(ts.reduce((a,b)=>a+b,0)/ts.length)}%`:'';})()}</span>
+      <select class="sel" id="sortSel"><option value="base">기본 순서</option><option value="trust">✔ 신뢰도순</option><option value="score">🇧🇷 브라질 점수순</option><option value="countries">🌍 나라 많은 순</option><option value="type">종류별</option></select></div>
       <div class="grid">${items.map(({x,i})=>cardHTML(x,i,S.sec)).join('')}</div>`;
     }
   }
@@ -738,8 +831,8 @@ function cardHTML(x,i,secId){
   const sc=(x.brazil||{}).score;const cn=(x.countries||[]).length;
   const ph=x.imgs&&x.imgs[0]?`style="background-image:url('${img(x.imgs[0])}')"`:'';
   return `<button class="item" data-act="detail" data-i="${i}">
-    <div class="ph ${x.imgState===2?'':'load'}" ${ph}>${x.imgs&&x.imgs[0]?'':(x.imgState===2?'👗':'')}</div>
-    <div class="badges">${sc!=null&&sc!==''?`<span class="bd ${scoreCls(sc)}">🇧🇷 ${esc(sc)}</span>`:''}${secId==='newin'&&cn>=2?`<span class="bd">🌍 ${cn}개국</span>`:''}</div>
+    <div class="ph ${x.imgState===2?'':'load'}" ${ph}>${x.imgs&&x.imgs[0]?'':(x.imgState===2?(x.verify==='mismatch'?'<span style="font-size:13px;text-align:center;padding:10px">⚠️ 사진 확인 안 됨<br>(다른 상품 페이지)</span>':'👗'):'')}</div>
+    <div class="badges">${trust(x)!=null?`<span class="bd ${trustCls(trust(x))}">${x.verify==='mismatch'?'⚠':'✔'} ${trust(x)}%</span>`:''}${sc!=null&&sc!==''?`<span class="bd ${scoreCls(sc)}">🇧🇷 ${esc(sc)}</span>`:''}${secId==='newin'&&cn>=2?`<span class="bd">🌍 ${cn}개국</span>`:''}</div>
     <span class="num">${x.imgs&&x.imgs.length>1?'📷'+x.imgs.length:''}</span>
     <div class="info"><div class="nm">${esc(x.name)}</div><div class="ty">${x.person?'⭐ '+esc(x.person)+' · ':''}${esc(x.type||'')}${!x.person&&x.fabric?' · '+esc(x.fabric):''}</div></div></button>`;
 }
@@ -778,6 +871,7 @@ function detailHTML(){
   return `<div class="sheet" id="sheet"><div class="wrap">
   <div class="top"><button class="back" data-act="close">‹</button><div class="ttl"><b>${esc(x.name)}</b><span class="muted">${esc(x.type||'')}</span></div></div>
   ${gal}
+  ${trustHTML(x)}
   <div class="card"><div style="line-height:1.5">${esc(x.desc||'')}</div></div>
   <div class="card kv">
     ${x.person?`<div class="k">인물</div><div><b>${esc(x.person)}</b>${x.personInfo?`<div class="muted">${esc(x.personInfo)}</div>`:''}</div>`:''}
@@ -799,6 +893,14 @@ function detailHTML(){
   </div>
   ${x.url?`<div class="src" style="margin-top:12px">출처: ${esc(x.url)}</div>`:''}
   </div></div>`;
+}
+function trustHTML(x){
+  const t=trust(x);if(t==null)return x.imgState===1?'<div class="card"><span class="spin"></span>정보가 맞는지 확인하는 중…</div>':'';
+  const v={ok:'✅ 상품 페이지에서 이 이름의 상품을 확인했어요',mismatch:'⚠️ AI가 준 주소가 다른 상품 페이지였어요 — 사진은 빼고 보여줘요',nopage:'➖ 상품 페이지를 열지 못해서 확인을 못 했어요'}[x.verify]||'';
+  return `<div class="card score"><div class="c" style="background:var(--${trustCls(t)==='g'?'ok':trustCls(t)==='m'?'mid':'sub'})">${t}%</div>
+    <div style="font-size:13.5px;line-height:1.55"><b>정보 신뢰도</b><div>${v}</div>
+    <div>${x.fabricOk?'✅ 원단 성분이 페이지 표시와 같아요':x.fabricGuess?'➖ 원단은 사진·설명으로 추측했어요':'➖ 원단 성분은 페이지에서 확인 못 했어요'}</div>
+    <div class="muted">AI 확신 ${esc(x.confidence??'?')}%</div></div></div>`;
 }
 function settingsHTML(){
   const w=getWatch();
@@ -843,7 +945,7 @@ async function act(a,v,el){
     (async()=>{for(const n of list){const p=research(n);await waitPhase(repKey(n));p;}})();
     setTimeout(render,50);
   }
-  else if(a==='open'){const rep=loadRep(v);S.rep=v;S.view='report';S.sec=rep?secsOf(rep)[0].id:'steady';S.sort='base';render();if(rep)secsOf(rep).forEach(s=>{const sec=(rep.sections||{})[s.id];if(sec&&sec.items&&sec.items.some(x=>x.imgState!==2)&&!running[v])fillImages(rep,s.id);});}
+  else if(a==='open'){const rep=loadRep(v);S.rep=v;S.view='report';S.sec=rep?secsOf(rep)[0].id:'steady';S.sort='base';render();if(rep)secsOf(rep).forEach(s=>{const sec=(rep.sections||{})[s.id];if(sec&&sec.items&&sec.items.some(x=>x.imgState!==2||!x.verify)&&!running[v]&&!(rep.kind==='forecast'&&s.id!=='item'))fillImages(rep,s.id);});}
   else if(a==='home'){S.view='home';S.detail=null;render();}
   else if(a==='settings'){S.view='settings';render();}
   else if(a==='news'){S.view='news';render();}
