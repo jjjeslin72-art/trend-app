@@ -112,7 +112,14 @@ function toast(t,ms=2600){const d=document.createElement('div');d.className='toa
 let cfg={};try{cfg=AB?JSON.parse(AB.aiConfig()):{};}catch(e){cfg={};}
 function apiKey(){return cfg.gemini||LS.get('key','');}
 
-const BRANDS=['Zara','Forever 21','Mango','H&M','Bershka','Stradivarius','Pull&Bear','Massimo Dutti','Shein','Chanel','Gucci','Prada','Miu Miu','Dior','Farm Rio','Animale','Renner','C&A','Riachuelo','Zinzane'];
+/* 봉헤치로 여성복 도매 기준 우선순위 (트렌드가 빨리 오고 브라질 시장에 바로 영향을 주는 순) */
+const BRAND_TIERS=[
+  ['🥇 꼭 볼 곳','유행이 제일 빨리 오고 브라질 도매에 바로 영향',['Zara','Shein','Farm Rio','Mango','Animale','Renner']],
+  ['🥈 같이 보면 좋은 곳','브라질 매장·쇼핑몰 흐름',['Bershka','Riachuelo','C&A','Lança Perfume','Dress To','Maria Filó','Youcom']],
+  ['🥉 참고','해외 SPA·브라질 고급 브랜드',['Stradivarius','H&M','Pull&Bear','Massimo Dutti','Zinzane','Forever 21']],
+  ['💎 명품','1~2년 뒤 유행의 방향만 참고',['Miu Miu','Prada','Gucci','Chanel','Dior']],
+];
+const BRANDS=BRAND_TIERS.flatMap(t=>t[2]);
 const COUNTRIES=[['es','🇪🇸 스페인'],['pt','🇵🇹 포르투갈'],['fr','🇫🇷 프랑스'],['it','🇮🇹 이탈리아'],['uk','🇬🇧 영국'],['de','🇩🇪 독일'],['us','🇺🇸 미국'],['kr','🇰🇷 한국'],['jp','🇯🇵 일본'],['cn','🇨🇳 중국'],['mx','🇲🇽 멕시코'],['ar','🇦🇷 아르헨티나'],['cl','🇨🇱 칠레'],['co','🇨🇴 콜롬비아'],['br','🇧🇷 브라질']];
 const cName=c=>(COUNTRIES.find(x=>x[0]===c)||[c,c])[1].replace(/^\S+\s/,'');
 const SHOWS=[['paris','🇫🇷 파리'],['milan','🇮🇹 밀라노'],['ny','🇺🇸 뉴욕'],['london','🇬🇧 런던'],['seoul','🇰🇷 서울'],['spfw','🇧🇷 상파울루(SPFW)'],['cph','🇩🇰 코펜하겐'],['tokyo','🇯🇵 도쿄']];
@@ -733,7 +740,8 @@ function homeHTML(){
   <h2>① 조사할 브랜드·가게</h2>
   <div class="row"><input class="inp" id="brandIn" placeholder="예: Zara, 봉헤치로 가게 이름" enterkeyhint="done"><button class="btn" data-act="add">추가</button></div>
   <div class="chips">${S.picked.map(b=>`<button class="chip sel" data-act="unpick" data-v="${esc(b)}">${esc(b)}<span class="x">✕</span></button>`).join('')||'<span class="muted">아래에서 고르거나 이름을 써서 추가하세요</span>'}</div>
-  <div class="chips">${BRANDS.filter(b=>!S.picked.includes(b)).map(b=>`<button class="chip" data-act="pick" data-v="${esc(b)}">+ ${esc(b)}</button>`).join('')}</div>
+  ${(()=>{let n=0;return BRAND_TIERS.map(([t,d,bs])=>`<div style="margin-top:12px"><b style="font-size:14px">${t}</b> <span class="muted">${d}</span></div>
+    <div class="chips" style="margin-top:6px">${bs.map(b=>{n++;const on=S.picked.includes(b);return `<button class="chip ${on?'sel':''}" data-act="${on?'unpick':'pick'}" data-v="${esc(b)}"><b style="opacity:.6">${n}</b> ${esc(b)}${on?'<span class="x">✓</span>':''}</button>`;}).join('')}</div>`).join('');})()}
   <h2>② 신상 볼 나라 <span class="muted">(여러 개 고르기)</span></h2>
   <div class="chips">${COUNTRIES.map(([c,n])=>`<button class="chip ${S.countries.includes(c)?'on':''}" data-act="country" data-v="${c}">${n}</button>`).join('')}</div>
   <button class="btn acc big" data-act="go" ${S.picked.length&&S.countries.length?'':'disabled'}>🔍 ${S.picked.length}곳 조사 시작</button>
