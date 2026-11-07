@@ -85,6 +85,15 @@ h2{font-size:18px;margin:22px 0 10px}
 a{color:var(--acc)}
 .qa{margin:10px 0}.qa .q{background:var(--ink);color:#fff;border-radius:16px 16px 4px 16px;padding:10px 13px;margin-left:15%;font-size:14.5px;line-height:1.5}
 .qa .a{background:#fff;border:1px solid var(--line);border-radius:16px 16px 16px 4px;padding:11px 13px;margin:8px 15% 0 0;font-size:14.5px;line-height:1.6}
+.fstrip{display:flex;gap:6px;overflow-x:auto;margin:8px 0 6px;scrollbar-width:none}.fstrip::-webkit-scrollbar{display:none}
+.fstrip img{height:150px;width:auto;max-width:130px;object-fit:cover;border-radius:10px;flex:none;background:#eee}
+.fstrip.load i{display:block;width:100px;height:150px;border-radius:10px;background:linear-gradient(90deg,#eee,#f6f6f6,#eee);flex:none}
+.bpics .bh{font-weight:800;font-size:14.5px;margin:4px 0 6px}.bstrip{display:flex;gap:8px;overflow-x:auto;margin-bottom:10px;scrollbar-width:none}.bstrip::-webkit-scrollbar{display:none}
+.bp{flex:none;width:96px}.bpi{width:96px;height:128px;border-radius:12px;background:#eee center/cover}.bpi.load{background:linear-gradient(90deg,#eee,#f6f6f6,#eee)}
+.bpl{font-size:12.5px;font-weight:700;margin-top:4px;line-height:1.3;word-break:keep-all}.bps{font-size:11.5px;color:var(--sub);display:flex;align-items:center;gap:4px}
+.bps .dot{width:10px;height:10px;border-radius:50%;display:inline-block;border:1px solid #0002}
+.bigov{position:fixed;inset:0;z-index:60;background:#000e;display:flex;align-items:center;justify-content:center}.bigov img{max-width:100%;max-height:100%;object-fit:contain}
+.bigov button{position:absolute;top:14px;right:14px;width:40px;height:40px;border-radius:50%;background:#fff3;color:#fff;font-size:18px;border:0}
 .ask{position:sticky;bottom:0;background:var(--bg);padding:10px 0 12px;display:flex;gap:8px;align-items:flex-end}
 .ask textarea{flex:1;min-width:0;resize:none;padding:12px 13px;border-radius:14px;border:1.5px solid var(--line);font:inherit;max-height:120px;outline:none}
 .shop{font-size:14px;line-height:1.5}.shop .btns{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}.shop .btns .chip{font-size:13px}
@@ -640,6 +649,33 @@ async function imageSearch(q,name,brand){
     return out.filter(x=>x.ratio>=0.6&&!BAD_IMG.test(x.u)).sort((a,b)=>(b.own-a.own)||(b.ratio-a.ratio));
   }catch(e){return [];}
 }
+/* 전망(색·원단)용: 이름 검사 없이 검색 위쪽 사진들 */
+async function imageSearchLoose(q,n=6){
+  if(!AB)return [];
+  try{const r=await fetch('/fetch?u='+encodeURIComponent('https://www.bing.com/images/search?q='+encodeURIComponent(q)+'&form=HDRSC2&first=1'));
+    const d=await r.json();if(!d.html)return [];const out=[];const seen=new Set();const re=/\bm="(\{[^"]*?\})"/g;let m;
+    while((m=re.exec(d.html))&&out.length<n){let o;try{o=JSON.parse(m[1].replace(/&quot;/g,'"').replace(/&amp;/g,'&'));}catch(e){continue;}
+      if(!o.murl||BAD_IMG.test(o.murl)||seen.has(o.murl))continue;seen.add(o.murl);out.push(o.murl);}
+    return out;}catch(e){return [];}
+}
+function fcQuery(id,x){
+  const pt=x.namePt||x.name;
+  if(id==='color')return `roupa feminina ${pt} look moda 2026`;
+  if(id==='fabric')return `${pt} tecido roupa feminina`;
+  return `${pt||x.name} moda feminina`;}
+function fillForecastImgs(rep,secId){
+  const sec=(rep.sections||{})[secId];if(!sec||!sec.items||sec.status==='run')return;
+  sec.items.forEach(it=>{
+    if(it.fimg===2||it.fimg===1)return;it.fimg=1;
+    queueImg(async()=>{
+      const list=await imageSearchLoose(fcQuery(secId,it),6);
+      const cur=loadRep(rep.key)||rep;const ci=((cur.sections||{})[secId]||{}).items||[];const t=ci.find(y=>y.name===it.name)||it;
+      t.fimgs=list;t.fimg=2;it.fimgs=list;it.fimg=2;saveRep(cur);
+      if(S.rep===rep.key&&S.view==='report'&&!S.detail&&(S.sec===secId||S.sec==='brief')){if(S.typing)S.pendingRender=1;else render();}
+    });
+  });
+}
+const stripHTML=(list,label)=>list&&list.length?`<div class="fstrip">${list.map(u=>`<img src="${img(u)}" loading="lazy" onerror="this.remove()" data-act="bigimg" data-v="${esc(u)}">`).join('')}</div>`:'';
 /* 상품 페이지가 이 이름의 상품인지 확인하고, 그 상품 사진만 가져옴 */
 async function checkItem(it,brand){
   const res={imgs:[],verify:'nopage',fabricOk:false,page:''};
@@ -877,10 +913,10 @@ function reportHTML(){
     else if(sec.status==='error')body=`<div class="err">⚠️ ${esc(sec.error)}</div><button class="btn big" data-act="retrysec" data-v="${esc(S.sec)}">↻ 이 항목만 다시 조사</button>`;
     else if(rep.kind==='shops')body=shopsHTML(rep,sec,meta);
     else if(rep.kind==='forecast'&&S.sec==='item'&&false)body='';
-    else if(rep.kind==='forecast'&&S.sec==='brief')body=accHTML(sec,true)+briefHTML(sec);
+    else if(rep.kind==='forecast'&&S.sec==='brief'){['color','fabric'].forEach(k=>fillForecastImgs(rep,k));body=accHTML(sec,true)+briefPics(rep)+briefHTML(sec);}
     else if(rep.kind==='forecast'&&S.sec==='mills')body=accHTML(sec)+millsHTML(sec,meta);
-    else if(rep.kind==='forecast'&&S.sec==='color')body=accHTML(sec)+colorHTML(rep,sec,meta);
-    else if(rep.kind==='forecast'&&S.sec==='fabric')body=accHTML(sec)+forecastHTML(rep,S.sec,sec,meta);
+    else if(rep.kind==='forecast'&&S.sec==='color'){fillForecastImgs(rep,'color');body=accHTML(sec)+colorHTML(rep,sec,meta);}
+    else if(rep.kind==='forecast'&&S.sec==='fabric'){fillForecastImgs(rep,'fabric');body=accHTML(sec)+forecastHTML(rep,S.sec,sec,meta);}
     else{
       const predBanner=rep.kind==='forecast'?accHTML(sec):'';
       const all=sortedItems(sec);
@@ -895,7 +931,8 @@ function reportHTML(){
       <div class="grid">${items.map(({x,i})=>cardHTML(x,i,S.sec)).join('')}</div>`;
     }
   }
-  return `<div class="wrap">${head}${S.sec==='qa'?'':shopHTML(rep)}${tabs}${body}</div>`;
+  const askBar=S.sec==='qa'?'':`<div class="ask"><textarea id="askIn2" rows="1" placeholder="💬 이 리포트에 질문하기">${esc(S.askDraft2||'')}</textarea><button class="btn acc" data-act="ask2" ${qaBusy[rep.key]?'disabled':''}>보내기</button></div>`;
+  return `<div class="wrap">${head}${S.sec==='qa'?'':shopHTML(rep)}${tabs}${body}${askBar}</div>`;
 }
 function accHTML(sec,brief){
   const cs=(sec.items||[]).map(x=>+x.confidence).filter(n=>n>0);
@@ -905,6 +942,19 @@ function accHTML(sec,brief){
     <div style="font-size:13.5px;line-height:1.55"><b>정확도 (AI 예상)</b>
     <div>${brief?'요점 정리는 아래 조사들을 모아 만든 <b>예측</b>이에요.':'이건 확인된 사실이 아니라 <b>예측</b>이에요.'} 검색으로 본 자료 ${src}개</div>
     <div class="muted">🏪 우리 가게 판매 경험과 다르면 사장님 경험이 맞아요</div></div></div>`;
+}
+function briefPics(rep){
+  const sec=id=>((rep.sections||{})[id]||{}).items||[];
+  const items=sec('item').filter(x=>x.imgs&&x.imgs[0]).slice(0,10);
+  const cols=sec('color').filter(x=>x.group!=='worldOnly');const fabs=sec('fabric');
+  const hex=h=>/^#?[0-9a-f]{6}$/i.test(String(h||'').trim())?('#'+String(h).trim().replace('#','')):'#ddd';
+  const tile=(u,label,sub)=>`<div class="bp" data-act="bigimg" data-v="${esc(u)}"><div class="bpi" style="background-image:url('${img(u)}')"></div><div class="bpl">${esc(label)}</div>${sub?`<div class="bps">${sub}</div>`:''}</div>`;
+  let h='';
+  if(items.length)h+=`<div class="bh">👗 2027 아이템</div><div class="bstrip">${items.map(x=>tile(x.imgs[0],x.name)).join('')}</div>`;
+  const ct=cols.filter(x=>x.fimgs&&x.fimgs[0]);
+  if(cols.length)h+=`<div class="bh">🎨 색 (기본색 + 유행색)</div><div class="bstrip">${cols.map(x=>x.fimgs&&x.fimgs[0]?tile(x.fimgs[0],x.name,`<span class="dot" style="background:${hex(x.hex)}"></span>${x.group==='base'?'기본':'유행'}`):`<div class="bp"><div class="bpi" style="background:${hex(x.hex)}"></div><div class="bpl">${esc(x.name)}</div></div>`).join('')}</div>`;
+  if(fabs.length)h+=`<div class="bh">🧵 원단 TOP 5</div><div class="bstrip">${fabs.map((x,i)=>x.fimgs&&x.fimgs[0]?tile(x.fimgs[0],(i+1)+'. '+x.name,esc(x.namePt||'')):`<div class="bp"><div class="bpi load"></div><div class="bpl">${esc((i+1)+'. '+x.name)}</div></div>`).join('')}</div>`;
+  return h?`<div class="card bpics">${h}<div class="muted" style="margin-top:6px">사진은 인터넷 검색 예시예요 · 누르면 크게</div></div>`:'';
 }
 function briefHTML(sec){
   const sh=getShop();const mine=[['good','👍 잘 팔리는 것'],['bad','👎 안 팔리는 것']].filter(([k])=>sh[k]);
@@ -947,6 +997,7 @@ function forecastHTML(rep,id,sec,meta,bare){
     <div class="hd"><div class="sw" style="${id==='color'?'background:'+hex(x.hex):''}">${id==='color'?'':'🧵'}</div>
       <div style="flex:1;min-width:0"><div class="rk">${i+1}위</div><div class="nm">${esc(x.name)}</div><div class="muted">${esc(x.namePt||'')}${id==='color'&&x.hex?' · '+esc(x.hex):''}</div></div>
       ${sc!=null&&sc!==''?`<span class="bd ${scoreCls(sc)}" style="font-size:13px">🇧🇷 ${esc(sc)}</span>`:''}</div>
+    ${x.fimg===2?stripHTML(x.fimgs):x.fimg===1?'<div class="fstrip load"><i></i><i></i><i></i></div>':''}
     ${x.world?`<div class="ln"><b>🌍 세계</b> ${esc(x.world)}</div>`:''}
     ${x.outlook?`<div class="br">🇧🇷 <b>브라질 전망</b> ${esc(x.outlook)}</div>`:''}
     ${x.use&&x.use.length?`<div class="ln"><b>어울리는 옷</b> ${esc(x.use.join(', '))}</div>`:''}
@@ -1065,6 +1116,7 @@ function newsHTML(){
 function bind(){
   const ki=$('#keyIn');if(ki)ki.oninput=()=>saveKey(ki.value);
   const inp=$('#brandIn');if(inp)inp.onkeydown=e=>{if(e.key==='Enter')act('add');};
+  const tb=$('#askIn2');if(tb){const fit=()=>{tb.style.height='auto';tb.style.height=Math.min(120,tb.scrollHeight)+'px';};fit();tb.oninput=()=>{S.askDraft2=tb.value;fit();};tb.onfocus=()=>{S.typing=1;};tb.onblur=()=>{S.typing=0;if(S.pendingRender){S.pendingRender=0;render();}};}
   const ta=$('#askIn');if(ta){const fit=()=>{ta.style.height='auto';ta.style.height=Math.min(120,ta.scrollHeight)+'px';};fit();ta.oninput=()=>{S.askDraft=ta.value;fit();};}
   const ss=$('#sortSel');if(ss){ss.value=S.sort;ss.onchange=()=>{S.sort=ss.value;render();};}
   const g=$('#gal');if(g)g.onscroll=()=>{const c=$('#galcnt');if(c)c.textContent=`${Math.round(g.scrollLeft/g.clientWidth)+1} / ${g.children.length}`;};
@@ -1096,6 +1148,8 @@ async function act(a,v,el){
   else if(a==='close'){S.detail=null;render();}
   else if(a==='redo'){const rep=loadRep(S.rep);if(rep&&!running[rep.key]){if(!await confirm2('다시 조사할까요? (지금 결과는 새 결과로 바뀌어요)'))return;research(rep.name,{reuseInfo:true,kind:rep.kind||'brand',secs:rep.secs});}}
   else if(a==='ask'){const t=$('#askIn');const q=t?t.value:'';S.askDraft='';askQuestion(q);}
+  else if(a==='ask2'){const t=$('#askIn2');const q=t?t.value.trim():'';if(!q)return;S.askDraft2='';S.sec='qa';askQuestion(q);}
+  else if(a==='bigimg'){const o=document.createElement('div');o.className='bigov';o.innerHTML=`<img src="${img(v)}"><button>✕</button>`;o.onclick=()=>o.remove();document.body.append(o);}
   else if(a==='askex'){askQuestion(v);}
   else if(a==='askitem'){const x=curItem();if(!x)return;S.detail=null;S.sec='qa';S.askDraft=`"${x.name}" 이 옷에 대해: `;render();scrollBottom();setTimeout(()=>{const t=$('#askIn');if(t){t.focus();t.setSelectionRange(t.value.length,t.value.length);}},80);}
   else if(a==='findaddr'){findAddress(S.rep);}
