@@ -447,6 +447,7 @@ function qaHTML(rep){
   return `${qa.length?'':`<div class="muted" style="margin-bottom:8px">이 리포트에 대해 무엇이든 물어보세요. 필요하면 AI가 인터넷도 찾아봐요</div>
     <div class="chips">${ex.map(e=>`<button class="chip" data-act="askex" data-v="${esc(e)}">${esc(e)}</button>`).join('')}</div>`}
   ${qa.map(x=>`<div class="qa"><div class="q">${esc(x.q)}</div><div class="a">${x.a?fmtAnswer(x.a):'<span class="spin"></span>찾아보는 중…'}</div></div>`).join('')}
+  ${qa.length?`<button class="chip" data-act="clearqa" style="margin:4px 0">🗑 질문 기록 지우기</button>`:''}
   <div class="ask"><textarea id="askIn" rows="1" placeholder="질문을 써 주세요">${esc(S.askDraft||'')}</textarea><button class="btn acc" data-act="ask" ${qaBusy[rep.key]?'disabled':''}>보내기</button></div>`;
 }
 
@@ -731,7 +732,8 @@ function homeHTML(){
   <h2>저장한 리포트</h2>
   <div class="list">${S.index.length?S.index.map(r=>{const rp=loadRep(r.key)||{};const st=running[r.key]?'<span class="spin"></span>조사 중…':rp.status==='error'?'⚠️ 오류':new Date(r.at).toLocaleDateString('ko-KR');
     return `<div class="card" data-act="open" data-v="${esc(r.key)}"><div class="thumb" style="${r.thumb||firstImg(rp)?`background-image:url('${img(r.thumb||firstImg(rp))}')`:''}"></div>
-    <div class="t"><b>${esc(r.name)}${isWatched(r.key)?' 🔔':''}</b><span class="muted">${st}</span></div><span style="font-size:20px;color:#bbb">›</span></div>`;}).join(''):'<div class="muted">아직 없어요</div>'}</div>
+    <div class="t"><b>${esc(r.name)}${isWatched(r.key)?' 🔔':''}</b><span class="muted">${st}</span></div><button class="back del" data-act="delrep" data-v="${esc(r.key)}" title="지우기" style="font-size:17px">🗑</button></div>`;}).join(''):'<div class="muted">아직 없어요</div>'}</div>
+  ${S.index.length>1?`<button class="btn ghost big" data-act="clearall" style="margin-top:4px">🗑 리포트 모두 지우기</button>`:''}
   </div>`;
 }
 function scoreCls(s){s=+s||0;return s>=75?'g':s>=50?'m':'r';}
@@ -747,7 +749,7 @@ function reportHTML(){
   const rep=loadRep(S.rep);if(!rep){S.view='home';return homeHTML();}
   const info=rep.info||{};
   const head=`<div class="top"><button class="back" data-act="home">‹</button><div class="ttl"><b>${esc(rep.name)}</b><span class="muted">${esc([rep.kind==='brand'||!rep.kind?info.where:'',rep.at?new Date(rep.at).toLocaleDateString('ko-KR'):''].filter(Boolean).join(' · '))}</span></div>
-    ${rep.kind&&rep.kind!=='brand'?'':`<button class="back" data-act="watch" title="새 상품 알림">${isWatched(rep.key)?'🔔':'🔕'}</button>`}<button class="back" data-act="redo" title="다시 조사">↻</button></div>`;
+    ${rep.kind&&rep.kind!=='brand'?'':`<button class="back" data-act="watch" title="새 상품 알림">${isWatched(rep.key)?'🔔':'🔕'}</button>`}<button class="back" data-act="redo" title="다시 조사">↻</button><button class="back" data-act="delrep" data-v="${esc(rep.key)}" title="지우기" style="font-size:17px">🗑</button></div>`;
   if(rep.status==='identify')return `<div class="wrap">${head}<div class="card"><span class="spin"></span>어떤 브랜드(가게)인지 찾는 중…</div></div>`;
   if(rep.status==='error'&&!Object.keys(rep.sections||{}).length)return `<div class="wrap">${head}<div class="err">⚠️ ${esc(rep.error)}</div><button class="btn big" data-act="redo">다시 해 보기</button></div>`;
   const tabs=`<div class="tabs">${secsOf(rep).map(s=>{const sec=(rep.sections||{})[s.id]||{};const n=(sec.items||[]).length;
@@ -975,6 +977,15 @@ async function act(a,v,el){
     if(AB)AB.shareText(t);else navigator.clipboard&&navigator.clipboard.writeText(t);}
   else if(a==='savekey'){saveKey($('#keyIn').value);toast('저장했어요');}
   else if(a==='testkey'){const ki=$('#keyIn');if(ki)saveKey(ki.value);toast('시험 중…');try{await gemini('"연결 성공" 이라고만 답해.',{search:false});toast('✅ 연결 성공!');}catch(e){toast('⚠️ '+errMsg(e),4000);}}
+  else if(a==='delrep'){
+    if(running[v]){toast('조사 중에는 지울 수 없어요');return;}
+    const r=loadRep(v);if(!confirm2(`"${r?r.name:v}" 리포트를 지울까요?`))return;
+    try{localStorage.removeItem('r:'+v);}catch(e){}
+    S.index=S.index.filter(x=>x.key!==v);saveIndex();
+    if(r&&isWatched(v))setWatch(getWatch().filter(x=>repKey(x.name)!==v));
+    if(S.rep===v){S.rep=null;S.view='home';S.detail=null;}
+    toast('지웠어요');render();}
+  else if(a==='clearqa'){const r=loadRep(S.rep);if(!r||!confirm2('질문 기록을 모두 지울까요?'))return;r.qa=[];saveRep(r);render();}
   else if(a==='clearall'){if(!confirm2('저장한 리포트를 모두 지울까요?'))return;S.index.forEach(r=>{try{localStorage.removeItem('r:'+r.key);}catch(e){}});S.index=[];saveIndex();render();}
   else if(a==='clearnews'){AB&&AB.setNews('[]');render();}
 }
