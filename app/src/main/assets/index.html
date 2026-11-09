@@ -134,7 +134,7 @@ const COUNTRIES=[['es','🇪🇸 스페인'],['pt','🇵🇹 포르투갈'],['fr
 const cName=c=>(COUNTRIES.find(x=>x[0]===c)||[c,c])[1].replace(/^\S+\s/,'');
 const SHOWS=[['paris','🇫🇷 파리'],['milan','🇮🇹 밀라노'],['ny','🇺🇸 뉴욕'],['london','🇬🇧 런던'],['seoul','🇰🇷 서울'],['spfw','🇧🇷 상파울루(SPFW)'],['cph','🇩🇰 코펜하겐'],['tokyo','🇯🇵 도쿄']];
 const MARKETS=[['shein','SHEIN'],['temu','Temu'],['aliexpress','AliExpress'],['shopee','Shopee'],['tiktok','TikTok Shop'],['meli','Mercado Livre']];
-const SPECIAL={shows:'👠 패션쇼 동향',people:'⭐ 인플루언서·셀럽 의상',market:'🛒 쇼핑몰 베스트셀러',forecast:'🔮 2027 전망 · 요점 정리',shops:'🏆 인기 가게 순위'};
+const SPECIAL={shows:'👠 패션쇼 동향',people:'⭐ 인플루언서·셀럽 의상',market:'🛒 쇼핑몰 베스트셀러',forecast:'🔮 2027 전망 · 요점 정리',shops:'🏆 인기 가게 순위',shopmodels:'🏪 인기 가게 스테디 모델'};
 const SECTIONS=[
   {id:'steady',icon:'🔁',title:'스테디 모델',long:'몇 년째 계속 다시 만드는 모델'},
   {id:'push',icon:'🔥',title:'2026 주력',long:'2026년에 가장 크게 민 모델'},
@@ -217,7 +217,7 @@ const SHOP_FIELDS=[['good','👍 잘 팔리는 것','원단·아이템·색·핏
 function getShop(){return LS.get('shop',{good:'리넨',bad:'알파이아타리아(정장)'});}
 function shopCtx(){return shopCtx0()+salesCtx();}
 function shopCtx0(){const sh=getShop();const L=SHOP_FIELDS.filter(([k])=>String(sh[k]||'').trim()).map(([k,t])=>`${t.replace(/^\S+\s/,'')}: ${sh[k]}`);
-  return L.length?`\n[사장님 가게의 실제 판매 경험 — 가장 중요한 근거야. 인터넷 자료나 세계 유행과 다르면 이 경험을 따라. 안 팔리는 것은 추천하지 말고, 브라질 점수도 이 가게 기준으로 매겨]\n${L.join('\n')}\n`:'';}
+  return L.length?`\n[참고용: 사장님 가게 한 곳의 판매 경험 — 조사 대상을 고르는 기준이 아니야. 조사·순서·브라질 점수는 시장 평균(여러 가게·브랜드에서 실제로 많이 나오고 팔리는 것)으로 정하고, 이 경험 때문에 특정 원단·아이템을 더 많이 넣거나 빼지 마. 이 내용은 각 모델의 shopFit 칸에만 써]\n${L.join('\n')}\n`:'';}
 const NO_PARTY='파티복·이브닝드레스·웨딩/하객 드레스(moda festa)는 사장님이 안 만들어서 필요 없어. 결과에서 빼고 일상복·출근복·캐주얼 위주로.';
 const ITEM_SPEC=`각 모델(items)마다 아래 칸을 채워:
 {"name":"상품/모델 이름(원래 언어 그대로)","type":"종류(한국어: 바지, 블라우스, 까자코(재킷), 원피스, 니트, 셔츠, 스커트, 세트 등)",
@@ -229,7 +229,8 @@ const ITEM_SPEC=`각 모델(items)마다 아래 칸을 채워:
  "fit":"핏·실루엣 (예: 오버핏, 크롭, 와이드, 슬림)",
  "price":"현지 판매가 (통화 표시, 모르면 빈칸)",
  "countries":["이 모델이 나온 나라 (한국어 나라 이름)"],
- "brazil":{"score":0~100,"why":"브라질에서 팔릴 가능성 이유 한두 줄"},
+ "brazil":{"score":0~100,"why":"브라질 시장 전체에서 팔릴 가능성 이유 한두 줄"},
+ "shopFit":"사장님 판매 경험과 비교 한마디 (예: 👍 잘 팔리는 리넨 계열 / 👎 안 팔리는 정장 원단) — 관계없으면 빈칸",
  "url":"바로 이 상품의 공식 상품 페이지 주소 (다른 상품 페이지·목록 페이지 주소를 넣으면 안 됨) — 검색에서 실제로 확인한 주소만, 모르면 빈칸",
  "confidence":0~100,  (이 모델 정보가 맞을 확률: 공식 상품 페이지에서 이름·원단·가격을 직접 확인했으면 85 이상, 기사·리뷰로 확인 60~80, 추측이면 50 이하)
  "img":"상품 사진 파일 주소를 확실히 알면 (모르면 빈칸)",
@@ -259,6 +260,15 @@ items의 name은 "트렌드 이름 — 대표 브랜드" 형식, brands에는 �
   if(rep.kind==='market'){const nm=(MARKETS.find(x=>x[0]===sec)||[sec,sec])[1];
     return head+`\n\n[할 일] 지금(최근 2~4주) ${nm}에서 여성복 중 가장 많이 팔리고 있는 옷 10개를 찾아 (베스트셀러·인기순·판매량·리뷰 수·'trending' 표시 기준). 브라질판 사이트가 있으면 브라질판을 먼저 보고, 없으면 미국·전 세계판. 바지·상의·원피스·세트·아우터 등 종류가 골고루 섞이게.
 각 모델의 countries에는 잘 팔리는 나라, price에는 사이트 판매가, desc 끝에 판매량·리뷰 수를 알면 괄호로. url은 상품 페이지 주소(확인된 것만).\n\n`+ITEM_SPEC+'\n\n'+OUT_RULE_T();}
+  if(rep.kind==='shopmodels'){
+    const where=sec==='aimores'?'상파울루 봉헤치로(Bom Retiro: Rua dos Aimorés, Rua José Paulino, Rua da Graça, Rua Ribeiro de Lima 등)의 여성복 도매·도소매 가게'
+      :sec==='bras'?'상파울루 브라스(Brás: Rua Oriente, Rua Maria Marcolina, Feirinha da Madrugada 등)의 여성복 도매·도소매 가게'
+      :sec==='insta'?'인스타그램 중심으로 크게 성장한 브라질 여성복 브랜드 (예: Dot. Clothing @store_dot, Secreto Closet @secretocloset.oficial — easy chic·캐주얼·리조트룩)'
+      :'인스타그램·틱톡으로 유명한 브라질 여성복 가게·온라인 쇼핑몰';
+    return head+`\n\n[할 일] 먼저 ${where} 중 SNS 노출(인스타 팔로워·틱톡·구글 리뷰·기사 언급)이 큰 가게 10~15곳을 속으로 골라. 순위표는 필요 없어.
+그 가게들이 여러 해·여러 시즌 동안 계속 다시 만들어 파는 "스테디 주력 모델" 10개를 찾아 — 색·원단만 바꿔 해마다 다시 나오는 기본 모델, 여러 가게가 공통으로 꾸준히 만드는 모델일수록 먼저.
+바지·블라우스·셔츠·원피스·세트·까자코·니트·스커트 등 종류가 골고루 섞이게. 한 가게·한 원단에 몰리지 않게 (시장 평균).
+각 모델의 brands에는 이 모델을 해마다 만드는 가게 이름(인기 순, 2~5곳), desc 끝에 '몇 시즌째 반복'인지 알면 괄호로, price는 도매가(R$), url·img는 그 가게의 실제 상품 게시물·상품 페이지(확인된 것만). summary에는 살펴본 가게 이름들을 짧게.\n\n`+ITEM_SPEC.replace('"countries":["이 모델이 나온 나라 (한국어 나라 이름)"],','"brands":["이 모델을 해마다 만드는 가게들"],"countries":[],')+'\n\n'+OUT_RULE_T();}
   if(rep.kind==='shops'){
     const where=sec==='aimores'?'상파울루 봉헤치로(Bom Retiro: Rua dos Aimorés, Rua José Paulino, Rua da Graça, Rua Ribeiro de Lima 등)에 매장이 있는 여성복 가게(도매·도소매)'
       :sec==='bras'?'상파울루 브라스(Brás: Rua Oriente, Rua Maria Marcolina, Feirinha da Madrugada 등)에 매장이 있는 여성복 가게(도매·도소매)'
@@ -285,7 +295,7 @@ items 각각: {"group":"base 또는 trend 또는 worldOnly","name":"색 이름(�
     if(sec==='mills')return base+`\n[할 일] 브라질 원단 회사·원단 도매상들이 2027년(2027 가을겨울, 2027/28 봄여름) 컬렉션으로 들여오거나 밀고 있는 원단과 색을 조사해. 찾을 곳: 대형 tecelagem·malharia의 새 컬렉션 발표, 원단 박람회(Febratex, Première Vision 상파울루 등), Senai Cetiqt·Abit·Texbrasil 트렌드 자료, 브라스·봉헤치로 원단 가게 인스타그램 신상. 회사(또는 자료) 8~10개.
 items 각각: {"name":"회사·가게·자료 이름","where":"도시·종류 (예: 산타카타리나 니트 원단 회사 / 브라스 원단 도매상)","fabrics":["밀고 있는 원단 (포르투갈어)"],"colors":["밀고 있는 색"],"note":"요점 단답 (20자 안팎)","src":["근거 페이지 주소 1~3개 (실제로 연 페이지만)"],"url":"근거 주소(확인된 것만)","instagram":"@계정(확인된 것만)"}\n`+out;
     if(sec==='brief'){const dig=forecastDigest(rep);
-      return base+`\n[할 일] 아래 조사 결과를 모아서 봉헤치로 도매 사장님이 바로 쓸 "2027 요점 정리"를 만들어. 짧고 실용적으로. 사장님 판매 경험에서 '안 팔리는 것'은 절대 추천하지 말고, '잘 팔리는 것'을 중심으로 그걸 어떻게 새롭게 바꿀지(색·디테일·핏)를 제안해. 세계 유행이라도 사장님 경험과 다르면 '피할 것'에 넣어.
+      return base+`\n[할 일] 아래 조사 결과를 모아서 봉헤치로 도매 사장님이 바로 쓸 "2027 요점 정리"를 만들어. 짧고 실용적으로. 앞의 칸들은 시장 평균(브라질에서 실제로 많이 나오고 팔리는 것) 기준으로 쓰고, 사장님 가게 경험으로 원단·아이템을 치우치게 하지 마. 사장님 경험은 마지막 '우리 가게에 맞춰 보면' 칸에만 써.
 ${dig}
 답은 JSON 하나만: {"summary":"핵심 3줄 (줄마다 20자 안팎, 줄바꿈 \\n으로 구분, 문장 말고 단답)","note":"","items":[
  {"title":"지금 바로 만들 것 (2026/27 여름 남은 기간)","points":["..."]},
@@ -294,7 +304,8 @@ ${dig}
  {"title":"원단 TOP 5","points":["Viscose — 싸고 시원함 (포르투갈어 원단명 — 이유 단답)"]},
  {"title":"색: 기본색 + 유행색","points":["..."]},
  {"title":"피할 것 (세계 유행이지만 브라질은 아님)","points":["..."]},
- {"title":"이번 주에 할 일","points":["원단 가게에 물어볼 것 등"]}]}  각 points는 3~5줄, 한 줄은 단답식 10~20자 (예: "와이드 팬츠 — Viscose 오프화이트"), 문장으로 길게 쓰지 마.
+ {"title":"이번 주에 할 일","points":["원단 가게에 물어볼 것 등"]},
+ {"title":"🏪 우리 가게에 맞춰 보면","points":["시장 흐름 중 우리 가게 잘 팔리는 것과 맞는 것 / 안 맞는 것"]}]}  각 points는 3~5줄, 한 줄은 단답식 10~20자 (예: "와이드 팬츠 — Viscose 오프화이트"), 문장으로 길게 쓰지 마.
 각 items에 "confidence":0~100 (그 칸 내용이 맞을 확률, 근거가 약하면 낮게)도 넣어.`;}
     return base+`\n[할 일] 2027년 브라질에서 뜰 여성복 아이템·실루엣 TOP 10 (예: 와이드 팬츠, 코르셋 탑, 드레이프 원피스). name은 아이템 이름(한국어), url·img는 그 아이템 예시 상품 페이지(확인된 것만).\n\n`+ITEM_SPEC+'\n\n'+OUT_RULE_T();}
   return '';
@@ -511,6 +522,7 @@ function qaHTML(rep){
     :rep.kind==='forecast'?['세계 유행인데 브라질에선 안 될 것은?','유행색으로 신상 5개 기획해 줘','이 원단들 봉헤치로·브라스 어디서 사?']
     :rep.kind==='market'?['쉐인·테무에 공통으로 많이 팔리는 건?','봉헤치로에서 바로 만들 만한 건?']
     :rep.kind==='people'?['이 중에 브라질에서 바로 따라 만들기 좋은 의상은?','제일 많이 나온 색은?']
+    :rep.kind==='shopmodels'?['여러 가게가 공통으로 만드는 모델은?','이 중 원단비가 제일 적게 드는 건?','우리가 아직 안 만드는 모델은?']
     :rep.kind==='shows'?['쇼들에서 공통으로 나온 트렌드는?','봉헤치로에서 바로 만들 만한 건?']
     :['이 중에 내년 여름에 만들기 좋은 3개는?','원단 비용이 제일 적게 드는 모델은?','이 가게 주력 가격대는?'];
   return `${qa.length?'':`<div class="muted" style="margin-bottom:8px">이 리포트에 대해 무엇이든 물어보세요. 필요하면 AI가 인터넷도 찾아봐요</div>
@@ -535,6 +547,10 @@ function specialSecs(kind){
     {id:'bras',icon:'🏬',title:'브라스',long:'브라스 여성복 가게 순위'},
     {id:'sns',icon:'📱',title:'SNS 인기 가게',long:'인스타·틱톡으로 유명한 브라질 여성복 가게·쇼핑몰'},
     {id:'insta',icon:'📸',title:'인스타 브랜드',long:'인스타그램으로 크게 큰 브라질 여성복 브랜드 순위 (Dot. Clothing, Secreto Closet 같은 곳)'}];
+  if(kind==='shopmodels')return [{id:'aimores',icon:'🏬',title:'봉헤치로·아이모레스',long:'봉헤치로 인기 가게들이 해마다 만드는 주력 모델'},
+    {id:'bras',icon:'🏬',title:'브라스',long:'브라스 인기 가게들이 해마다 만드는 주력 모델'},
+    {id:'sns',icon:'📱',title:'SNS 인기 가게',long:'SNS 인기 브라질 여성복 가게들이 해마다 만드는 주력 모델'},
+    {id:'insta',icon:'📸',title:'인스타 브랜드',long:'인스타 브랜드(Dot. Clothing, Secreto Closet 등)가 해마다 만드는 주력 모델'}];
   if(kind==='market')return S.markets.map(m=>({id:m,icon:'🛒',title:(MARKETS.find(x=>x[0]===m)||[m,m])[1],long:'지금 가장 많이 팔리는 여성복'}));
   return [{id:'brief',icon:'📝',title:'요점 정리',long:'전부 모아서 한눈에 — 무엇을 만들고, 어떤 원단·색을 쓸지'},
     {id:'color',icon:'🎨',title:`색상`,long:`브라질 기본색 5 + 2027 유행색 ${S.ncolors} + 브라질에선 안 뜨는 색`},
@@ -902,7 +918,7 @@ function homeHTML(){
   return `<div class="wrap">
   <div class="row" style="justify-content:space-between"><div><h1>트렌드 레이더</h1><div class="muted">브랜드·가게 이름만 넣으면 AI가 조사해요</div></div>
     <button class="back" data-act="settings" title="설정">⚙️</button></div>
-  <button class="card" data-act="shopedit" style="width:100%;text-align:left;border-color:var(--ok)"><b>🏪 우리 가게 판매 경험</b> <span class="muted">— 모든 조사의 기준이 돼요 (눌러서 고치기)</span>
+  <button class="card" data-act="shopedit" style="width:100%;text-align:left;border-color:var(--ok)"><b>🏪 우리 가게 판매 경험</b> <span class="muted">— 조사는 시장 평균으로, 우리 가게와 맞는지는 따로 표시해요 (눌러서 고치기)</span>
     <div style="font-size:13.5px;margin-top:6px;line-height:1.5">${(()=>{const sh=getShop();return [['good','👍'],['bad','👎']].map(([k,e])=>sh[k]?`${e} ${esc(sh[k])}`:'').filter(Boolean).join('<br>')||'<span class="muted">아직 비어 있어요</span>';})()}</div></button>
   <div class="hero"><div style="font-size:13px;opacity:.75">한 번 조사하면</div>
     <div style="font-size:17px;line-height:1.55;margin-top:4px">🔁 <b>스테디 모델</b> 10 · 🔥 <b>2026 주력</b> 10<br>🆕 <b>지금 해외 신상</b> 10 · 🎬 영상까지</div>
@@ -916,7 +932,7 @@ function homeHTML(){
   <div class="chips">${S.picked.map(b=>`<button class="chip sel" data-act="unpick" data-v="${esc(b)}">${esc(b)}<span class="x">✕</span></button>`).join('')||'<span class="muted">아래에서 고르거나 이름을 써서 추가하세요</span>'}</div>
   ${(()=>{let n=0;return BRAND_TIERS.map(([t,d,bs])=>`<div style="margin-top:12px"><b style="font-size:14px">${t}</b> <span class="muted">${d}</span></div>
     <div class="chips" style="margin-top:6px">${bs.map(b=>{n++;const on=S.picked.includes(b);return `<button class="chip ${on?'sel':''}" data-act="${on?'unpick':'pick'}" data-v="${esc(b)}"><b style="opacity:.6">${n}</b> ${esc(b)}${on?'<span class="x">✓</span>':''}</button>`;}).join('')}</div>`).join('');})()}
-  <button class="card" data-act="special" data-v="shops" style="width:100%;text-align:left;margin-top:14px;border-color:var(--gold)"><b>🏆 인기 가게 순위 보기</b><div class="muted">봉헤치로·아이모레스 / 브라스 / SNS 인기 / 📸 인스타 브랜드 — 팔로워·리뷰·방문자로 순위. 마음에 드는 가게는 바로 조사</div></button>
+  <button class="card" data-act="special" data-v="shopmodels" style="width:100%;text-align:left;margin-top:14px;border-color:var(--gold)"><b>🏪 인기 가게들의 스테디 모델 보기</b><div class="muted">봉헤치로·아이모레스 / 브라스 / SNS 인기 / 📸 인스타 브랜드 — 잘나가는 가게들이 해마다 계속 만들어 파는 주력 모델 10개씩</div></button>
   <h2>② 신상 볼 나라 <span class="muted">(여러 개 고르기)</span></h2>
   <div class="chips">${COUNTRIES.map(([c,n])=>`<button class="chip ${S.countries.includes(c)?'on':''}" data-act="country" data-v="${c}">${n}</button>`).join('')}</div>
   <button class="btn acc big" data-act="go" ${S.picked.length&&S.countries.length?'':'disabled'}>🔍 ${S.picked.length}곳 조사 시작</button>
@@ -932,7 +948,7 @@ function homeHTML(){
   <div class="chips">${MARKETS.map(([c,n])=>`<button class="chip ${S.markets.includes(c)?'on':''}" data-act="market" data-v="${c}">${n}</button>`).join('')}</div>
   <button class="btn big" data-act="special" data-v="market" ${S.markets.length?'':'disabled'}>🛒 ${S.markets.length}곳 베스트셀러 조사</button>
   <div style="margin-top:26px;padding:12px 14px;border-radius:16px;background:#F3EEFA;border:1px dashed #B9A6D9">
-  <b>🔮 여기부터는 예측이에요 (참고용)</b><div class="muted" style="margin-top:3px">위의 조사는 실제 상품·가게를 찾는 거고, 아래는 AI의 예측이에요. 🏪 우리 가게 판매 경험을 가장 중요한 기준으로 써요</div></div>
+  <b>🔮 여기부터는 예측이에요 (참고용)</b><div class="muted" style="margin-top:3px">위의 조사는 실제 상품·가게를 찾는 거고, 아래는 AI의 예측이에요. 시장 평균 기준이고, 🏪 우리 가게와 맞는지는 맨 끝에 따로 보여 줘요</div></div>
   <h2>⑥ 2027 전망 · 요점 정리 <span class="muted">(예측)</span></h2>
   <div class="muted">브라질 원단 회사가 들여오는 원단·색을 근거로, 기본색과 유행색을 나눠서 정리해요. 위에서 조사한 리포트들도 모두 모아 📝 요점 정리를 만들어요</div>
   <div class="chips"><span class="muted" style="align-self:center">유행색</span>${[5,7].map(n=>`<button class="chip ${S.ncolors===n?'on':''}" data-act="ncolors" data-v="${n}">${n}가지</button>`).join('')}</div>
@@ -1015,7 +1031,7 @@ function accHTML(sec,brief){
   return `<div class="card score"><div class="c" style="background:var(--${avg==null?'sub':avg>=75?'ok':avg>=50?'mid':'sub'})">${avg==null?'?':avg+'%'}</div>
     <div style="font-size:13.5px;line-height:1.55"><b>정확도 (AI 예상)</b>
     <div>${brief?'요점 정리는 아래 조사들을 모아 만든 <b>예측</b>이에요.':'이건 확인된 사실이 아니라 <b>예측</b>이에요.'} 검색으로 본 자료 ${src}개</div>
-    <div class="muted">🏪 우리 가게 판매 경험과 다르면 사장님 경험이 맞아요</div></div></div>`;
+    <div class="muted">시장 평균 기준이에요 · 🏪 우리 가게와 맞는지는 따로 표시</div></div></div>`;
 }
 function briefPics(rep){
   const sec=id=>((rep.sections||{})[id]||{}).items||[];
@@ -1034,7 +1050,7 @@ function briefHTML(sec){const sal=salesHTML(false);
   return sal+briefHTML0(sec);}
 function briefHTML0(sec){
   const sh=getShop();const mine=[['good','👍 잘 팔리는 것'],['bad','👎 안 팔리는 것']].filter(([k])=>sh[k]);
-  return `${mine.length?`<div class="fc" style="border-color:var(--ok);background:#F2FAF5"><div class="nm">🏪 사장님 판매 경험 (가장 확실한 기준)</div>${mine.map(([k,t])=>`<div class="ln"><b>${t}</b> ${esc(sh[k])}</div>`).join('')}<div class="muted" style="margin-top:6px">아래 예측이 이 내용과 다르면 이게 맞아요</div></div>`:''}
+  return `${mine.length?`<div class="fc" style="border-color:var(--ok);background:#F2FAF5"><div class="nm">🏪 우리 가게 판매 경험 (참고)</div>${mine.map(([k,t])=>`<div class="ln"><b>${t}</b> ${esc(sh[k])}</div>`).join('')}<div class="muted" style="margin-top:6px">아래는 시장 평균이에요 · 맨 끝 칸에서 우리 가게와 비교</div></div>`:''}
   ${sec.summary?`<div class="sum" style="font-size:15px"><b>📝 한눈에</b><br>${esc(sec.summary).replace(/\n/g,'<br>')}</div>`:''}
   ${(sec.items||[]).map(x=>`<div class="fc"><div class="nm">${esc(x.title||x.name)}${x.confidence?` <span class="bd ${trustCls(+x.confidence)}" style="font-size:12px;vertical-align:2px">${esc(x.confidence)}%</span>`:''}</div>
     ${(x.points||[]).map(p=>`<div class="ln">• ${esc(p)}</div>`).join('')}</div>`).join('')}
@@ -1146,6 +1162,7 @@ function detailHTML(){
     ${x.fit?`<div class="k">핏</div><div>${esc(x.fit)}</div>`:''}
     ${x.price?`<div class="k">가격</div><div>${esc(x.price)}</div>`:''}
     ${x.countries&&x.countries.length?`<div class="k">나온 나라</div><div>${esc(x.countries.join(', '))}${x.countries.length>=2?' <b style="color:var(--acc)">· 여러 나라 동시</b>':''}</div>`:''}
+    ${x.shopFit?`<div class="k">🏪 우리 가게</div><div>${esc(x.shopFit)}</div>`:''}
   </div>
   ${sc!=null&&sc!==''?`<div class="card score"><div class="c" style="background:var(--${scoreCls(sc)==='g'?'ok':scoreCls(sc)==='m'?'mid':'sub'})">${esc(sc)}</div><div><b>🇧🇷 브라질 판매 점수 <span class="muted" style="font-weight:600">🔮 예측</span></b><div style="font-size:14px;line-height:1.5;margin-top:3px">${esc(b.why||'')}</div></div></div>`:''}
   <div class="acts">
@@ -1171,7 +1188,7 @@ function trustHTML(x){
 function shopEditHTML(){
   const sh=getShop();
   return `<div class="wrap"><div class="top"><button class="back" data-act="home">‹</button><div class="ttl"><b>🏪 우리 가게 판매 경험</b></div></div>
-  <div class="note">여기 적은 내용이 모든 조사·🇧🇷 점수·요점 정리·질문 답변의 <b>가장 중요한 기준</b>이 돼요. 인터넷 유행과 달라도 사장님 경험을 따라요</div>
+  <div class="note">조사·🇧🇷 점수는 <b>시장 평균</b>으로 해요. 여기 적은 내용은 각 옷에 <b>🏪 우리 가게와 맞음/안 맞음</b>으로 따로 표시하고, 요점 정리 맨 끝에 비교해 줘요</div>
   ${SHOP_FIELDS.map(([k,t,ph])=>`<div class="card"><b>${t}</b><textarea class="inp shopin" data-k="${k}" rows="2" style="width:100%;margin-top:8px;resize:vertical" placeholder="${esc(ph)}">${esc(sh[k]||'')}</textarea></div>`).join('')}
   <button class="btn acc big" data-act="shopsave">💾 저장</button>
   <h2>📊 재고 앱 판매 기록</h2>${salesHTML(true)}
