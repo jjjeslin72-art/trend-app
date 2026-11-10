@@ -102,6 +102,11 @@ class MainActivity : ComponentActivity() {
         })
 
         TrendWorker.channel(this)
+        // 예전(하루 한 번) 일정을 일주일 한 번으로 바꿔 둠
+        try {
+            val n = org.json.JSONArray(getSharedPreferences("app", MODE_PRIVATE).getString("watch", "[]")).length()
+            if (n > 0) TrendWorker.schedule(this, true)
+        } catch (_: Exception) {}
         DigestWorker.channel(this)
         pendingShare = sharedText(intent)
         WorkService.channels(this)
@@ -356,7 +361,7 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        /** 새 상품 알림 받을 브랜드 목록 저장 → 하루 한 번 확인 */
+        /** 새 상품 알림 받을 브랜드 목록 저장 → 일주일에 한 번 확인 */
         @JavascriptInterface
         fun setWatch(json: String) {
             getSharedPreferences("app", MODE_PRIVATE).edit().putString("watch", json).apply()

@@ -23,7 +23,7 @@ import java.util.Date
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 
-/** 하루 한 번: 알림 켠 브랜드의 새 상품을 구글 검색으로 확인 → 새로 나온 게 있으면 알림 */
+/** 일주일에 한 번: 알림 켠 브랜드의 새 상품을 구글 검색으로 확인 → 새로 나온 게 있으면 알림 */
 class TrendWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, params) {
 
     companion object {
@@ -40,11 +40,11 @@ class TrendWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx,
         fun schedule(ctx: Context, on: Boolean) {
             val wm = WorkManager.getInstance(ctx)
             if (!on) { wm.cancelUniqueWork(NAME); return }
-            val req = PeriodicWorkRequestBuilder<TrendWorker>(24, TimeUnit.HOURS)
+            val req = PeriodicWorkRequestBuilder<TrendWorker>(7, TimeUnit.DAYS)
                 .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
                 .setInitialDelay(1, TimeUnit.HOURS)
                 .build()
-            wm.enqueueUniquePeriodicWork(NAME, ExistingPeriodicWorkPolicy.KEEP, req)
+            wm.enqueueUniquePeriodicWork(NAME, ExistingPeriodicWorkPolicy.UPDATE, req)
         }
 
         fun now(ctx: Context) {

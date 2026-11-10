@@ -148,6 +148,7 @@ a{color:var(--gold)}
 /* 아래 메뉴바 */
 #nav{position:fixed;left:12px;right:12px;bottom:calc(10px + env(safe-area-inset-bottom));z-index:12;height:64px;border-radius:24px;background:rgba(28,24,22,.94);backdrop-filter:blur(16px);border:1px solid #2c2622;display:none;justify-content:space-around;align-items:center;max-width:620px;margin:0 auto}
 body.home #nav{display:flex}
+body.simple #nav .full{display:none}
 #nav button{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:10.5px;color:#8c8176;background:none;min-width:54px}
 #nav button i{font-style:normal;font-size:19px;line-height:1}
 #nav button.on{color:#F3D99E}
@@ -159,9 +160,9 @@ body.home .wrap{padding-bottom:120px}
 <div id="app"></div>
 <nav id="nav">
   <button class="on" data-act="navhome"><i>⌂</i>홈</button>
-  <button data-act="boardview"><i>📋</i>기획판</button>
+  <button class="full" data-act="boardview"><i>📋</i>기획판</button>
   <button class="plus" data-act="navnew" aria-label="조사">＋</button>
-  <button data-act="shopedit"><i>🏪</i>우리 가게</button>
+  <button class="full" data-act="shopedit"><i>🏪</i>우리 가게</button>
   <button data-act="settings"><i>⚙︎</i>설정</button>
 </nav>
 <script>
@@ -197,6 +198,9 @@ const SECTIONS=[
   {id:'newin',icon:'🆕',title:'지금 신상',long:'고른 나라 매장에 막 나온 신상'},
 ];
 const secsOf=rep=>(rep&&rep.secs)||SECTIONS;
+/* 간단 모드: 큰 브랜드 신상 매주 받기만 보여 줌. 설정 → '모든 기능 보기'로 예전 기능 다시 켜기 */
+const FULL=()=>!!LS.get('full',false);
+const NEWIN_SECS=()=>SECTIONS.filter(s=>s.id==='newin');
 const flag=c=>(COUNTRIES.find(x=>x[0]===c)||['',''])[1].split(' ')[0];
 
 const S={
@@ -948,7 +952,7 @@ function toggleWatch(rep){
   let w=getWatch();
   if(w.some(x=>repKey(x.name)===rep.key)){w=w.filter(x=>repKey(x.name)!==rep.key);toast('🔕 알림을 껐어요');}
   else{const i=rep.info||{};w.push({name:rep.name,info:[i.where,i.instagram,i.site].filter(Boolean).join(', '),countries:(rep.countries||S.countries).map(cName).join(', ')});
-    toast('🔔 하루 한 번 새 상품을 확인해서 알려 드릴게요');}
+    toast('🔔 일주일에 한 번 새 신상을 확인해서 알려 드릴게요');}
   setWatch(w);render();
 }
 function getNews(){try{return AB?JSON.parse(AB.getNews()):[];}catch(e){return [];}}
@@ -960,7 +964,7 @@ let lastPage='';
 function render(){
   const app=$('#app');
   const page=S.view+'|'+S.rep;if(page!==lastPage){lastPage=page;setTimeout(()=>window.scrollTo(0,0),0);}
-  document.body.classList.toggle('home',S.view==='home');
+  document.body.classList.toggle('home',S.view==='home');document.body.classList.toggle('simple',!FULL());
   if(S.view==='home')app.innerHTML=homeHTML();
   else if(S.view==='report')app.innerHTML=reportHTML();
   else if(S.view==='settings')app.innerHTML=settingsHTML();
@@ -975,7 +979,33 @@ function heroBg(){ // 조사한 리포트에서 사진 하나를 골라 첫 화�
     for(const k in rp.sections){const it=(rp.sections[k].items||[]).find(x=>x.imgs&&x.imgs[0]&&x.verify==='ok')||(rp.sections[k].items||[]).find(x=>x.imgs&&x.imgs[0]);
       if(it)return `background-image:url('${img(it.imgs[0])}')`;}}
   return 'background-image:radial-gradient(120% 100% at 80% 0%,#3a2e22 0%,#100d0c 65%)';}
+function simpleHomeHTML(){
+  const news=getNews();const w=getWatch();
+  return `<div class="wrap">
+  <div class="row" style="justify-content:space-between"><div><h1>TREND RADAR</h1><div class="muted" style="letter-spacing:3px;font-size:10.5px;color:var(--gold);font-weight:700">트렌드 레이더 · 큰 브랜드 신상</div></div>
+    <button class="back" data-act="settings" title="설정">⚙️</button></div>
+  <div class="hero" style="${heroBg()}"><div style="font-size:10.5px;letter-spacing:3px;color:#F3D99E;font-weight:700">NEW IN · 매주</div>
+    <div style="font-size:18px;line-height:1.5;margin-top:6px">🆕 <b>큰 브랜드 신상</b>을<br>사진·원단·가격과 함께</div>
+    <div style="font-size:12.5px;opacity:.8;margin-top:8px">한 번 보면 그 브랜드는 🔔 매주 새 신상을 확인해 알려 드려요</div></div>
+  ${news.length?`<button class="card" data-act="news" style="width:100%;text-align:left;border-color:var(--acc)"><b>🔔 이번 주 새 신상 ${news.length}개</b><div class="muted">눌러서 보기 · 브랜드별로 사진 보기</div></button>`:''}
+  <h2>① 브랜드</h2>
+  <div class="row"><input class="inp" id="brandIn" placeholder="예: Zara, Mango, Shein" enterkeyhint="done"><button class="btn" data-act="add">추가</button></div>
+  <div class="chips">${S.picked.map(b=>`<button class="chip sel" data-act="unpick" data-v="${esc(b)}">${esc(b)}<span class="x">✕</span></button>`).join('')||'<span class="muted">아래에서 고르거나 이름을 써서 추가하세요</span>'}</div>
+  ${(()=>{let n=0;return BRAND_TIERS.map(([t,d,bs])=>`<div style="margin-top:12px"><b style="font-size:14px">${t}</b> <span class="muted">${d}</span></div>
+    <div class="chips" style="margin-top:6px">${bs.map(b=>{n++;const on=S.picked.includes(b);return `<button class="chip ${on?'sel':''}" data-act="${on?'unpick':'pick'}" data-v="${esc(b)}"><b style="opacity:.6">${n}</b> ${esc(b)}${on?'<span class="x">✓</span>':''}</button>`;}).join('')}</div>`).join('');})()}
+  <h2>② 신상 볼 나라 <span class="muted">(여러 개 고르기)</span></h2>
+  <div class="chips">${COUNTRIES.map(([c,n])=>`<button class="chip ${S.countries.includes(c)?'on':''}" data-act="country" data-v="${c}">${n}</button>`).join('')}</div>
+  <button class="btn acc big" data-act="go" ${S.picked.length&&S.countries.length?'':'disabled'}>🆕 ${S.picked.length}곳 신상 보기</button>
+  <div class="muted" style="text-align:center;margin-top:8px">한 곳에 1~2분 · 나가서 다른 일 해도 돼요, 끝나면 알림 🔔</div>
+  ${w.length?`<div class="muted" style="text-align:center;margin-top:6px">🔔 매주 확인 중: ${esc(w.map(x=>x.name).join(', '))}</div>`:''}
+  <h2>지난 신상</h2>
+  <div class="list">${S.index.filter(r=>{const rp=loadRep(r.key)||{};return !rp.kind||rp.kind==='brand';}).map(r=>{const rp=loadRep(r.key)||{};const st=running[r.key]?'<span class="spin"></span>조사 중…':rp.status==='error'?'⚠️ 오류':new Date(r.at).toLocaleDateString('ko-KR');
+    return `<div class="card" data-act="open" data-v="${esc(r.key)}"><div class="thumb" style="${r.thumb||firstImg(rp)?`background-image:url('${img(r.thumb||firstImg(rp))}')`:''}"></div>
+    <div class="t"><b>${esc(r.name)}${isWatched(r.key)?' 🔔':''}</b><span class="muted">${st}</span></div><button class="back del" data-act="delrep" data-v="${esc(r.key)}" title="지우기" style="font-size:17px">🗑</button></div>`;}).join('')||'<div class="muted">아직 없어요</div>'}</div>
+  </div>`;
+}
 function homeHTML(){
+  if(!FULL())return simpleHomeHTML();
   const news=getNews();
   return `<div class="wrap">
   <div class="row" style="justify-content:space-between"><div><h1>TREND RADAR</h1><div class="muted" style="letter-spacing:3px;font-size:10.5px;color:var(--gold);font-weight:700">트렌드 레이더 · AI FASHION RESEARCH</div></div>
@@ -1040,7 +1070,7 @@ function reportHTML(){
   if(rep.status==='error'&&!Object.keys(rep.sections||{}).length)return `<div class="wrap">${head}<div class="err">⚠️ ${esc(rep.error)}</div><button class="btn big" data-act="redo">다시 해 보기</button></div>`;
   const tabs=`<div class="tabs">${rep.kind==='people'&&secsOf(rep).length>1?`<button class="tab ${S.sec==='all'?'on':''}" data-act="tab" data-v="all">🌍 종합</button>`:''}${secsOf(rep).map(s=>{const sec=(rep.sections||{})[s.id]||{};const n=(sec.items||[]).length;
     return `<button class="tab ${S.sec===s.id?'on':''}" data-act="tab" data-v="${s.id}">${s.icon} ${s.title}${sec.status==='run'?' …':n&&rep.kind!=='forecast'?` ${n}`:''}</button>`;}).join('')}
-    <button class="tab ${S.sec==='video'?'on':''}" data-act="tab" data-v="video">🎬 영상</button>
+    ${FULL()?`<button class="tab ${S.sec==='video'?'on':''}" data-act="tab" data-v="video">🎬 영상</button>`:''}
     <button class="tab ${S.sec==='qa'?'on':''}" data-act="tab" data-v="qa">💬 질문${(rep.qa||[]).length?' '+rep.qa.length:''}</button>
     <button class="tab ${S.sec==='src'?'on':''}" data-act="tab" data-v="src">📎 출처</button></div>`;
   let body='';
@@ -1262,18 +1292,21 @@ function settingsHTML(){
   <div class="card"><b>구글 AI 키</b><div class="muted" style="margin:4px 0 10px">${cfg.built?'✅ 앱에 키가 들어 있어요 (GitHub 비밀값)':'aistudio.google.com 에서 만든 키를 붙여 넣으세요'}</div>
     ${cfg.built?'':`<div class="row"><input class="inp" id="keyIn" type="password" placeholder="AIza..." value="${esc(LS.get('key',''))}"><button class="btn" data-act="savekey">저장</button></div>`}
     <button class="btn ghost big" data-act="testkey" style="margin-top:10px">🔌 연결 시험</button></div>
-  <div class="card"><b>🔔 새 상품 알림</b><div class="muted" style="margin:4px 0 8px">하루 한 번 확인해요. 리포트 화면 오른쪽 위 🔕를 누르면 추가돼요</div>
+  <div class="card"><b>🔔 매주 신상 알림</b><div class="muted" style="margin:4px 0 8px">일주일에 한 번 확인해요. 신상을 본 브랜드는 저절로 추가돼요 (리포트 오른쪽 위 🔔로 끄고 켜기)</div>
     ${w.length?w.map(x=>`<div class="sw" style="padding:8px 0;border-top:1px solid var(--line)"><span>${esc(x.name)} <span class="muted">${esc(x.countries||'')}</span></span><button class="chip" data-act="unwatch" data-v="${esc(x.name)}">끄기</button></div>`).join(''):'<div class="muted">아직 없어요</div>'}
     ${w.length&&AB?'<button class="btn ghost big" data-act="checknow">지금 바로 확인</button>':''}</div>
-  <div class="card"><b>📅 월요일 아침 요점 알림</b><div class="muted" style="margin:4px 0 8px">매주 월요일 아침 8시쯤, 이번 주 바뀐 점 3줄을 알림으로 보내요 (2027 전망·판매 기록·기획판 기준)</div>
+  <div class="card"><b>🧰 모든 기능 보기</b><div class="muted" style="margin:4px 0 8px">스테디 모델·2026 주력·패션쇼·인물·쇼핑몰·2027 전망·기획판·우리 가게 등 예전 기능을 다시 보여 줘요</div>
+    <button class="btn ${FULL()?'acc':'ghost'} big" data-act="fulltoggle">${FULL()?'✅ 켜짐 (누르면 간단하게)':'켜기'}</button></div>
+  ${FULL()?`<div class="card"><b>📅 월요일 아침 요점 알림</b><div class="muted" style="margin:4px 0 8px">매주 월요일 아침 8시쯤, 이번 주 바뀐 점 3줄을 알림으로 보내요 (2027 전망·판매 기록·기획판 기준)</div>
     <button class="btn ${LS.get('digestOn',false)?'acc':'ghost'} big" data-act="digest">${LS.get('digestOn',false)?'✅ 켜짐 (누르면 끄기)':'켜기'}</button>
-    ${LS.get('digestOn',false)&&AB&&AB.digestNow?'<button class="chip" data-act="digestnow" style="margin-top:8px">지금 한 번 받아 보기</button>':''}</div>
+    ${LS.get('digestOn',false)&&AB&&AB.digestNow?'<button class="chip" data-act="digestnow" style="margin-top:8px">지금 한 번 받아 보기</button>':''}</div>`:''}
   <div class="card"><b>저장 공간</b><div class="muted" style="margin:4px 0 8px">리포트 ${S.index.length}개</div><button class="btn ghost big" data-act="clearall">🗑 리포트 모두 지우기</button></div>
   <div class="muted" style="text-align:center;margin-top:16px">트렌드 레이더 · 개인용 · v${esc(cfg.version||'web')}</div></div>`;
 }
 function newsHTML(){
   const n=getNews().slice().reverse();
   return `<div class="wrap"><div class="top"><button class="back" data-act="home">‹</button><div class="ttl"><b>🆕 새 상품 소식</b></div>${n.length?'<button class="chip" data-act="clearnews">모두 지우기</button>':''}</div>
+  ${n.length?`<div class="card"><b>📷 사진·원단·가격으로 자세히 보기</b><div class="chips" style="margin-top:8px">${[...new Set(n.map(x=>x.brand))].map(b=>`<button class="chip" data-act="brandnew" data-v="${esc(b)}">${esc(b)} 신상 보기</button>`).join('')}</div></div>`:''}
   ${n.length?n.map(x=>`<button class="pick" data-act="url" data-v="${esc(x.url||'https://www.google.com/search?tbm=isch&q='+encodeURIComponent(x.brand+' '+x.name))}"><b>${esc(x.name)}</b><div class="muted">${esc(x.brand)} · ${esc(x.type||'')} · ${esc(x.at||'')}</div></button>`).join(''):'<div class="muted">새 소식이 없어요</div>'}</div>`;
 }
 
@@ -1298,9 +1331,12 @@ async function act(a,v,el){
   else if(a==='go'){
     if(!apiKey()){toast('먼저 ⚙️ 설정에서 구글 AI 키를 넣어 주세요');S.view='settings';render();return;}
     const list=S.picked.slice();
-    S.rep=repKey(list[0]);S.view='report';S.sec='steady';S.sort='base';
+    const simple=!FULL();
+    S.rep=repKey(list[0]);S.view='report';S.sec=simple?'newin':'steady';S.sort='base';
+    if(simple){let w=getWatch();const cs=S.countries.map(cName).join(', ');
+      list.forEach(n=>{const o=w.find(x=>repKey(x.name)===repKey(n));if(o)o.countries=cs;else w.push({name:n,info:'',countries:cs});});setWatch(w);}
     // 상호 확인 창이 겹치지 않게 한 곳씩 시작 (조사는 동시에 진행)
-    (async()=>{for(const n of list){const p=research(n);await waitPhase(repKey(n));p;}})();
+    (async()=>{for(const n of list){const p=research(n,simple?{secs:NEWIN_SECS()}:{});await waitPhase(repKey(n));p;}})();
     setTimeout(render,50);
   }
   else if(a==='open'){const rep=loadRep(v);S.rep=v;S.view='report';S.sec=rep?secsOf(rep)[0].id:'steady';S.sort='base';render();if(rep&&rep.kind==='shops')secsOf(rep).forEach(s=>checkShops(rep,s.id));
@@ -1313,6 +1349,10 @@ async function act(a,v,el){
   else if(a==='close'){S.detail=null;render();}
   else if(a==='redo'){const rep=loadRep(S.rep);if(rep&&!running[rep.key]){if(!await confirm2('다시 조사할까요? (지금 결과는 새 결과로 바뀌어요)'))return;research(rep.name,{reuseInfo:true,kind:rep.kind||'brand',secs:rep.secs});}}
   else if(a==='mclose')closeModal();
+  else if(a==='fulltoggle'){LS.set('full',!FULL());toast(FULL()?'🧰 모든 기능을 보여 줘요':'🆕 간단하게: 신상만 보여 줘요');render();}
+  else if(a==='brandnew'){if(!apiKey()&&!(AB&&AB.ask)){toast('먼저 ⚙️ 설정에서 키를 넣어 주세요');return;}const w=getWatch().find(x=>x.name===v);
+    const cs=w&&w.countries?COUNTRIES.filter(([c])=>w.countries.includes(cName(c))).map(([c])=>c):[];if(cs.length){S.countries=cs;}
+    research(v,{secs:NEWIN_SECS()});S.rep=repKey(v);S.view='report';S.sec='newin';S.sort='base';setTimeout(render,50);}
   else if(a==='navhome'){S.view='home';render();window.scrollTo({top:0,behavior:'smooth'});}
   else if(a==='navnew'){S.view='home';render();setTimeout(()=>{const i=$('#brandIn');if(i){i.scrollIntoView({block:'center',behavior:'smooth'});i.focus();}},80);}
   else if(a==='ctryf'){S.ctryF=v;render();}
