@@ -470,7 +470,74 @@ async function runNewinByCountry(rep,s){
     sources:res.flatMap(r=>r.sources).slice(0,24)};
   saveRep(cur);if(S.rep===key)render();workMsg();fillImages(cur,s.id);
 }
-async function runSection(rep,s){
+/* ---------- 신상: 브랜드 공식몰 신상 페이지를 직접 열어서 사진·이름·가격 가져오기 ---------- */
+const listWait={};
+window.__listed=(id,json)=>{const f=listWait[id];if(!f)return;delete listWait[id];let a={};try{a=JSON.parse(json);}catch(e){}f(a||{});};
+let listing=0;const listQ=[];
+function renderList(url){
+  if(!AB||!AB.renderList)return Promise.resolve({});
+  if(listing>=2)return new Promise(r=>listQ.push(()=>renderList(url).then(r)));
+  listing++;
+  const done=()=>{listing=Math.max(0,listing-1);const nx=listQ.shift();if(nx)setTimeout(nx,0);};
+  return new Promise(res=>{const id='l'+Math.random().toString(36).slice(2);
+    listWait[id]=d=>{done();res(d);};AB.renderList(id,url);
+    setTimeout(()=>{if(listWait[id]){delete listWait[id];done();res({});}},30000);});
+}
+async function findNewInUrls(brand,c){
+  const r=await gemini(`구글 검색으로 '${brand}' 공식 온라인몰의 ${cName(c)} 사이트에서 "여성 신상품 목록" 페이지 주소를 찾아줘 (New in / Novedades / Novidades / Nouveautés / 신상품 등, 여성(Woman/Mujer/Feminino) 신상 전체 목록). 상품 하나의 페이지가 아니라 여러 상품이 나오는 목록 페이지여야 해. 오늘 날짜: ${today()}.
+지어내지 말고 검색에서 확인한 주소만. 답은 JSON 하나만: {"urls":["가장 맞는 주소","다른 후보 1~2개"]}`);
+  let d={};try{d=parseJSON(r.text);}catch(e){}
+  return [...new Set((d.urls||[]).filter(u=>/^https?:\/\//.test(u||'')))].slice(0,3);
+}
+const normName=n=>deacc(n).replace(/[^a-z0-9가-힣]+/g,' ').trim();
+async function runNewinDirect(rep,s){
+  const key=rep.key;const brand=(rep.info||{}).name||rep.name;
+  const cs=(rep.countries&&rep.countries.length)?rep.countries:['es'];
+  rep.sections[s.id]={status:'run',items:[]};saveRep(rep);if(S.rep===key)render();
+  const res=await Promise.all(cs.map(async c=>{
+    let urls=[];try{urls=await findNewInUrls(brand,c);}catch(e){}
+    for(const u of urls){const d=await renderList(u);const it=(d.items||[]).filter(x=>x&&x.name&&x.img);
+      if(it.length>=4)return {c,url:u,items:it};}
+    return {c,url:urls[0]||'',items:[]};
+  }));
+  const map=new Map();
+  for(const r of res)for(const x of r.items){const k=normName(x.name);if(!k)continue;
+    const o=map.get(k);if(o){if(!o.countries.includes(cName(r.c)))o.countries.push(cName(r.c));continue;}
+    map.set(k,{name:x.name,type:'',price:x.price||'',fabric:'',desc:'',url:x.url,page:x.url,img:x.img,imgs:[x.img],imgState:2,verify:'ok',cv:2,direct:1,countries:[cName(r.c)]});}
+  // 여러 나라에 같이 나온 것 먼저, 그다음 나라별로 골고루
+  const all=[...map.values()];
+  const items=all.filter(x=>x.countries.length>1).concat(all.filter(x=>x.countries.length===1));
+  if(items.length<4){ // 신상 페이지를 못 열면 예전 방식(AI 검색)으로
+    delete rep.sections[s.id];return (rep.countries||[]).length>1?runNewinByCountry(rep,s):runSection(rep,s,true);}
+  const multi=items.filter(x=>x.countries.length>1).length;
+  const cur=loadRep(key)||rep;
+  cur.sections[s.id]={status:'done',direct:1,items:items.slice(0,40),
+    summary:`공식몰 신상 페이지에서 바로 가져왔어요 (${res.filter(r=>r.items.length).map(r=>flag(r.c)+' '+r.items.length+'개').join(' · ')})${multi?` · 여러 나라 동시 ${multi}개`:''}`,
+    note:res.filter(r=>!r.items.length).map(r=>`${cName(r.c)} 신상 페이지를 못 열었어요`).join(', '),
+    sources:res.filter(r=>r.url).map(r=>({title:`${brand} ${cName(r.c)} 신상`,url:r.url}))};
+  saveRep(cur);if(S.rep===key)render();workMsg();
+  // 종류(한국어)만 한 번에 붙이기 — 검색 없이 빨리
+  try{const list=cur.sections[s.id].items;
+    const r=await gemini(`아래 여성복 상품 이름들의 종류를 한국어 한 단어로 (예: 원피스, 블라우스, 바지, 셔츠, 니트, 재킷, 코트, 스커트, 세트, 탑, 가방, 신발). 답은 JSON 배열만, 순서 그대로: ["원피스",...]\n`+list.map((x,i)=>`${i+1}. ${x.name}`).join('\n'),{search:false});
+    const t=parseJSON(r.text);const c2=loadRep(key);const sec=c2&&c2.sections[s.id];
+    if(Array.isArray(t)&&sec&&sec.items){sec.items.forEach((x,i)=>{if(t[i])x.type=String(t[i]).slice(0,12);});saveRep(c2);if(S.rep===key&&!S.detail)render();}
+  }catch(e){}
+}
+/* 상세 화면 열 때: 상품 페이지에서 사진 더 + 원단(성분) 찾기 */
+const moreBusy={};
+async function loadMore(rep,secId,i){
+  const x=((rep.sections||{})[secId]||{}).items?.[i];if(!x||!x.direct||x.moreDone||!x.url)return;
+  const k=rep.key+secId+i;if(moreBusy[k])return;moreBusy[k]=1;
+  try{const d=await renderPage(x.url);const cur=loadRep(rep.key);const y=cur&&cur.sections[secId]&&cur.sections[secId].items[i];if(!y)return;
+    const txt=String(d.text||'');
+    const fab=txt.match(/(\d{1,3}\s?%\s?[A-Za-zÀ-ÿ]+(?:\s[A-Za-zÀ-ÿ]+)?)(?:[,\s·/]+\d{1,3}\s?%\s?[A-Za-zÀ-ÿ]+(?:\s[A-Za-zÀ-ÿ]+)?){0,3}/);
+    if(fab)y.fabric=fab[0].replace(/\s+/g,' ').slice(0,70);
+    for(const u of (d.imgs||[]))if(!y.imgs.includes(u)&&!BAD_IMG.test(u)&&y.imgs.length<8)y.imgs.push(u);
+    y.moreDone=1;saveRep(cur);if(S.detail&&S.rep===rep.key)render();
+  }catch(e){}finally{delete moreBusy[k];}
+}
+async function runSection(rep,s,noDirect){
+  if(!noDirect&&s.id==='newin'&&(!rep.kind||rep.kind==='brand')&&AB&&AB.renderList&&!FULL())return runNewinDirect(rep,s);
   if(s.id==='newin'&&(!rep.kind||rep.kind==='brand')&&(rep.countries||[]).length>1)return runNewinByCountry(rep,s);
   const key=rep.key;
   rep.sections[s.id]={status:'run',items:[]};saveRep(rep);if(S.rep===key)render();
@@ -1207,7 +1274,7 @@ function cardHTML(x,i,secId){
     <div class="ph ${x.imgState===2?'':'load'}" ${ph}>${x.imgs&&x.imgs[0]?'':(x.imgState===2?(x.verify==='mismatch'?'<span style="font-size:13px;text-align:center;padding:10px">⚠️ 사진 확인 안 됨<br>(다른 상품 페이지)</span>':'<span style="font-size:13px;text-align:center;padding:10px">👗<br>맞는 사진을 못 찾았어요<br>눌러서 🖼️ 구글에서 보기</span>'):'')}</div>
     <div class="badges">${trust(x)!=null?`<span class="bd ${trustCls(trust(x))}">${x.verify==='mismatch'?'⚠':'✔'} ${trust(x)}%</span>`:''}${sc!=null&&sc!==''?`<span class="bd ${scoreCls(sc)}">🇧🇷 ${esc(sc)}</span>`:''}${secId==='newin'&&cn>=2?`<span class="bd">🌍 ${cn}개국</span>`:''}</div>
     <span class="num">${x.imgs&&x.imgs.length>1?'📷'+x.imgs.length:''}</span>
-    <div class="info"><div class="nm">${esc(x.name)}</div><div class="ty">${x.person?'⭐ '+esc(x.person)+' · ':''}${esc(x.type||'')}${!x.person&&x.fabric?' · '+esc(x.fabric):''}</div></div></button>`;
+    <div class="info"><div class="nm">${esc(x.name)}</div><div class="ty">${x.person?'⭐ '+esc(x.person)+' · ':''}${esc(x.type||'')}${x.price?' · '+esc(x.price):''}${!x.person&&x.fabric?' · '+esc(x.fabric):''}</div></div></button>`;
 }
 function allVideos(rep){
   const seen=new Set(),out=[];
@@ -1345,7 +1412,7 @@ async function act(a,v,el){
   else if(a==='settings'){S.view='settings';render();}
   else if(a==='news'){S.view='news';render();}
   else if(a==='tab'){S.sec=v;S.sort='base';render();window.scrollTo(0,0);}
-  else if(a==='detail'){S.detail={sec:el.dataset.s||S.sec,i:+el.dataset.i};render();}
+  else if(a==='detail'){S.detail={sec:el.dataset.s||S.sec,i:+el.dataset.i};render();const rp=loadRep(S.rep);if(rp)loadMore(rp,S.detail.sec,S.detail.i);}
   else if(a==='close'){S.detail=null;render();}
   else if(a==='redo'){const rep=loadRep(S.rep);if(rep&&!running[rep.key]){if(!await confirm2('다시 조사할까요? (지금 결과는 새 결과로 바뀌어요)'))return;research(rep.name,{reuseInfo:true,kind:rep.kind||'brand',secs:rep.secs});}}
   else if(a==='mclose')closeModal();

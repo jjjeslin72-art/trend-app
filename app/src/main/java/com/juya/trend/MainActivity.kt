@@ -222,6 +222,75 @@ class MainActivity : ComponentActivity() {
         ui.postDelayed({ finish("\"{}\"") }, 14000)
     }
 
+    /** 신상 목록 페이지에서 상품 카드(사진·이름·가격·주소) 모으기 */
+    private val listJs = """
+        (function(){
+          var out=[],seen={};
+          var PRICE=/(R\$|US\$|€|£|¥|₩|\$)\s?\d[\d.,]*|\d[\d.,]*\s?(€|EUR|TL|zł|kr)/;
+          function best(im){
+            var ss=im.getAttribute('srcset')||im.getAttribute('data-srcset')||'';
+            if(ss){ var b=ss.split(',').map(function(x){x=x.trim().split(/\s+/);return {u:x[0],w:parseInt(x[1]||'0',10)};}).sort(function(a,b){return b.w-a.w;})[0]; if(b&&b.u)return b.u; }
+            return im.currentSrc||im.getAttribute('data-src')||im.getAttribute('src')||'';
+          }
+          document.querySelectorAll('a[href]').forEach(function(a){
+            var card=a.closest('li,article,[class*="product"],[class*="Product"],[class*="item"],[data-productid],[data-product-id]')||a;
+            var im=a.querySelector('img')||card.querySelector('img'); if(!im)return;
+            var src=best(im);
+            if(!src||/^data:/.test(src)){ var so=card.querySelector('picture source'); if(so)src=(so.getAttribute('srcset')||'').split(',')[0].trim().split(' ')[0]; }
+            try{ src=new URL(src,location.href).href; }catch(e){ return; }
+            if(!/^https?:/.test(src)||/\.svg(\?|$)|logo|icon|sprite|placeholder|transparent|blank/i.test(src))return;
+            var href=a.href; if(!href||seen[href]||href.indexOf('#')===href.length-1)return;
+            var r=im.getBoundingClientRect(); if(r.width&&r.width<70)return;
+            var txt=(card.innerText||'').replace(/\s+/g,' ').trim();
+            var name=(im.getAttribute('alt')||a.getAttribute('aria-label')||a.getAttribute('title')||'').trim();
+            if(!name||name.length<3){ name=txt.replace(PRICE,'').trim(); }
+            name=name.replace(/\s+/g,' ').slice(0,90);
+            if(!name||name.length<3)return;
+            var pm=txt.match(PRICE);
+            seen[href]=1; out.push({name:name,img:src,url:href,price:pm?pm[0]:''});
+          });
+          return JSON.stringify({items:out.slice(0,48),title:document.title||''});
+        })()
+    """.trimIndent()
+
+    @SuppressLint("SetJavaScriptEnabled")
+    private fun renderList(id: String, url: String) {
+        val w = WebView(this)
+        var done = false
+        var started = false
+        fun finish(result: String) {
+            if (done) return
+            done = true
+            js("window.__listed && window.__listed(${JSONObject.quote(id)}, $result)")
+            ui.post { try { root.removeView(w); w.destroy() } catch (_: Exception) {} }
+        }
+        with(w.settings) {
+            javaScriptEnabled = true
+            domStorageEnabled = true
+            userAgentString = userAgentString.replace("; wv", "")
+            blockNetworkImage = false
+        }
+        w.webViewClient = object : WebViewClient() {
+            override fun onPageFinished(view: WebView, u: String) {
+                if (started) return
+                started = true
+                // 천천히 내려가며 사진을 불러오게 함
+                for (k in 1..6) ui.postDelayed({ if (!done) view.evaluateJavascript("window.scrollBy(0,1400)", null) }, 1200L * k)
+                ui.postDelayed({
+                    if (!done) view.evaluateJavascript(listJs) { r -> finish(if (r.isNullOrBlank() || r == "null") "\"{}\"" else r) }
+                }, 8500)
+            }
+            override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest) =
+                !(request.url.scheme ?: "").startsWith("http")
+        }
+        root.addView(w, 0, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
+        w.loadUrl(url)
+        ui.postDelayed({
+            if (!done) w.evaluateJavascript(listJs) { r -> finish(if (r.isNullOrBlank() || r == "null") "\"{}\"" else r) }
+        }, 24000)
+        ui.postDelayed({ finish("\"{}\"") }, 27000)
+    }
+
     /** 사진을 파일로 받아 두기 (공유·저장용) */
     private fun cacheImage(url: String): File? {
         val r = Net.image(this, url) ?: return null
@@ -292,6 +361,9 @@ class MainActivity : ComponentActivity() {
 
         @JavascriptInterface
         fun render(id: String, url: String) { ui.post { this@MainActivity.render(id, url) } }
+
+        @JavascriptInterface
+        fun renderList(id: String, url: String) { ui.post { this@MainActivity.renderList(id, url) } }
 
         @JavascriptInterface
         fun open(url: String) { ui.post { openExternal(url) } }
